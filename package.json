@@ -1,0 +1,23 @@
+{
+  "name": "touhou-school-of-fish",
+  "version": "0.1.0",
+  "description": "Study app for intro quiz of Touhou Project Musics",
+  "license": "UNLICENSED",
+  "author": "otagao",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --dir",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^35.1.2",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "howler": "^2.2.4",
+    "papaparse": "^5.5.2"
+  }
+}
