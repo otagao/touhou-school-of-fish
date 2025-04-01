@@ -1,23 +1,44 @@
 {
   "name": "touhou-school-of-fish",
   "version": "0.1.0",
-  "description": "Study app for intro quiz of Touhou Project Musics",
-  "license": "UNLICENSED",
-  "author": "otagao",
-  "type": "commonjs",
-  "main": "index.js",
+  "description": "東方Project楽曲のイントロクイズに向けた学習・演習用アプリ",
+  "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --dir",
     "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "author": "otagao",
+  "license": "UNLICENSED",
   "devDependencies": {
-    "electron": "^35.1.2",
-    "electron-builder": "^26.0.12"
+    "electron": "^22.0.0",
+    "electron-builder": "^23.6.0"
   },
   "dependencies": {
-    "howler": "^2.2.4",
-    "papaparse": "^5.5.2"
+    "howler": "^2.2.3",
+    "papaparse": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.otagao.touhouschooloffish",
+    "productName": "東方Project楽曲のイントロクイズに向けた学習・演習用アプリ",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.music",
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ]
   }
 }
