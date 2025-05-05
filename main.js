@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { promises: fsPromises } = require('fs'); // fs.promises をインポート
 
 // アプリケーションのグローバル参照を防ぐため
 let mainWindow = null;
@@ -63,43 +64,58 @@ ipcMain.handle('open-file-dialog', async (event, options) => {
   return result.filePaths[0];
 });
 
+async function findFilesRecursive(dir, extensions, allFiles = []) {
+  try {
+    const dirents = await fsPromises.readdir(dir, { withFileTypes: true });
+    for (const dirent of dirents) {
+      const fullPath = path.resolve(dir, dirent.name);
+      if (dirent.isDirectory()) {
+        // '.' で始まる隠しディレクトリなどはスキップした方が良い場合がある
+        if (!dirent.name.startsWith('.')) {
+           await findFilesRecursive(fullPath, extensions, allFiles); // 再帰呼び出し
+        }
+      } else if (dirent.isFile()){ // direntがファイルの場合のみ処理
+        const ext = path.extname(dirent.name).toLowerCase();
+        // 拡張子フィルターが指定されているか、または指定された拡張子リストに含まれるか
+        if (!extensions || extensions.length === 0 || extensions.includes(ext)) {
+          allFiles.push(fullPath); // フルパスを追加
+        }
+      }
+    }
+  } catch (err) {
+    // アクセス権がないなどの理由でエラーが発生した場合
+    console.error(`Error reading directory ${dir}: ${err.message}`);
+    // エラーが発生しても処理を続行させる（エラーが発生したディレクトリはスキップされる）
+  }
+  return allFiles;
+}
+
 // ディレクトリ内のファイル一覧を取得
 ipcMain.handle('get-files-in-directory', async (event, directoryPath, extensions) => {
   if (!directoryPath) {
-    console.error('ディレクトリパスが指定されていません');
+    console.error('[main.js] ディレクトリパスが指定されていません');
     return [];
   }
-  
+
   try {
-    console.log(`ディレクトリ内のファイル一覧を取得: ${directoryPath}`);
-    console.log(`拡張子フィルター: ${extensions ? extensions.join(', ') : 'なし'}`);
-    
-    const files = fs.readdirSync(directoryPath);
-    console.log(`ディレクトリ内のファイル数: ${files.length}`);
-    
-    let result;
-    if (!extensions || extensions.length === 0) {
-      result = files.map(file => path.join(directoryPath, file));
-    } else {
-      result = files
-        .filter(file => {
-          const ext = path.extname(file).toLowerCase();
-          return extensions.includes(ext);
-        })
-        .map(file => path.join(directoryPath, file));
+    console.log(`[main.js] ディレクトリ内のファイル一覧を再帰的に取得: ${directoryPath}`);
+    console.log(`[main.js] 拡張子フィルター: ${extensions ? extensions.join(', ') : 'なし'}`);
+
+    // 再帰探索関数を呼び出す
+    const allAudioFiles = await findFilesRecursive(directoryPath, extensions);
+
+    console.log(`[main.js] フィルタリング後のファイル数 (再帰探索含む): ${allAudioFiles.length}`);
+
+    // 最初の数件だけログ出力（デバッグ用）
+    if (allAudioFiles.length > 0) {
+      console.log('[main.js] ファイルの例:');
+      allAudioFiles.slice(0, 5).forEach(file => console.log(` - ${file}`));
     }
-    
-    console.log(`フィルタリング後のファイル数: ${result.length}`);
-    
-    // 最初の数件だけログ出力
-    if (result.length > 0) {
-      console.log('ファイルの例:');
-      result.slice(0, 3).forEach(file => console.log(` - ${file}`));
-    }
-    
-    return result;
+
+    return allAudioFiles; // フルパスの配列を返す
   } catch (error) {
-    console.error('ディレクトリ読み込みエラー:', error);
+    console.error('[main.js] ディレクトリ読み込みエラー:', error);
+    // レンダラープロセスにエラー情報を伝えるために、エラーメッセージを含む新しいエラーをスロー
     throw new Error(`ディレクトリの読み込みに失敗しました: ${error.message}`);
   }
 });

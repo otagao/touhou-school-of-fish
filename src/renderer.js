@@ -5,6 +5,23 @@ let songData = [];
 let currentSong = null;
 let audioPlayer = null;
 
+/**
+ * ファイル名またはフルパスから拡張子を除いたファイル名本体を取得する
+ * @param {string} filePath ファイルパスまたはファイル名
+ * @returns {string} 拡張子を除いたファイル名
+ */
+function getBaseName(filePath) {
+  if (!filePath) return '';
+  // パス区切り文字 (\ または /) で分割し、最後の要素（ファイル名）を取得
+  const fileName = filePath.split(/[\\/]/).pop();
+  // 最後のドット (.) の位置を見つける
+  const lastDotIndex = fileName.lastIndexOf('.');
+  // ドットがない、またはドットが最初にある（隠しファイルなど）場合は、そのまま返す
+  if (lastDotIndex <= 0) return fileName;
+  // ドットより前の部分を返す
+  return fileName.slice(0, lastDotIndex);
+}
+
 // DOMが読み込まれたら実行
 document.addEventListener('DOMContentLoaded', () => {
   // 初期設定画面のイベントリスナー
@@ -208,62 +225,93 @@ function parseSongData(csvContent) {
 // 楽曲データとファイルのマッチング
 function matchSongsWithFiles(audioFiles) {
   try {
-    console.log('ファイルマッチング処理を開始します');
-    
-    // ファイル名からファイルパスのマップを作成
-    const fileMap = {};
-    audioFiles.forEach(filePath => {
-      const fileName = filePath.split('/').pop().split('\\').pop();
-      fileMap[fileName] = filePath;
-    });
-    
-    console.log(`ファイルマップを作成しました。${Object.keys(fileMap).length}個のファイルが対象です`);
-    
-    // マップの最初の数件を表示
-    const fileMapEntries = Object.entries(fileMap).slice(0, 3);
-    fileMapEntries.forEach(([name, path]) => {
-      console.log(`ファイルマップの例: "${name}" => "${path}"`);
-    });
-    
-    // 楽曲データとファイルをマッチング
+    console.log('[renderer.js] ファイルマッチング処理を開始します (拡張子あいまい、サブフォルダ対応)');
+    console.log(`[renderer.js] 処理対象の楽曲データ数: ${songData.length}`);
+    console.log(`[renderer.js] 検出された音声ファイル数: ${audioFiles.length}`);
+
+    // 1. 検出された音声ファイルのマップを作成
+    //    キー: 拡張子を除いたファイル名 (小文字)
+    //    バリュー: ファイルのフルパス
+    //    重複するベース名があった場合、最初に見つかったものを優先する
+    const audioFileMap = new Map();
+    for (const fullPath of audioFiles) {
+        const baseNameLower = getBaseName(fullPath).toLowerCase(); // 拡張子なしファイル名 (小文字)
+        if (baseNameLower && !audioFileMap.has(baseNameLower)) { // ベース名があり、まだマップにない場合
+            audioFileMap.set(baseNameLower, fullPath); // マップに追加
+        }
+        // else {
+        //   // 重複した場合のログ（必要に応じて）
+        //   console.warn(`[renderer.js] 重複ベース名検出: ${baseNameLower}. 最初に検出された ${audioFileMap.get(baseNameLower)} を使用します。`);
+        // }
+    }
+
+    console.log(`[renderer.js] 音声ファイルマップ作成完了。ユニークなベース名数: ${audioFileMap.size}`);
+    // マップ内容のサンプルログ（デバッグ用）
+    let logCount = 0;
+    for (const [name, path] of audioFileMap.entries()) {
+      if (logCount < 3) {
+        console.log(`  マップ例: "${name}" => "${path}"`);
+        logCount++;
+      } else break;
+    }
+
+    // 2. 楽曲データと音声ファイルマップをマッチング
     let matchCount = 0;
     let noMatchCount = 0;
-    
+
     songData.forEach((song, index) => {
-      // 処理の進捗を表示（最初の数件と最後の数件）
-      const logDetails = index < 3 || index >= songData.length - 3;
-      
+      // CSVから読み込んだファイル名から拡張子を除去し、小文字に変換
+      const csvBaseNameLower = getBaseName(song.filename).toLowerCase();
+
+      // デバッグログ（最初の数件と最後の数件）
+      const logDetails = index < 5 || index >= songData.length - 5;
       if (logDetails) {
-        console.log(`マッチング処理: 曲 ${index + 1}/${songData.length}, ファイル名: "${song.filename}"`);
+        console.log(`[renderer.js] マッチング試行 ${index + 1}/${songData.length}: CSV Filename="${song.filename}", BaseName="${csvBaseNameLower}"`);
       }
-      
-      if (fileMap[song.filename]) {
-        song.filePath = fileMap[song.filename];
+
+      // マップにCSVのベース名（小文字）が存在するか確認
+      if (csvBaseNameLower && audioFileMap.has(csvBaseNameLower)) {
+        song.filePath = audioFileMap.get(csvBaseNameLower); // マップからフルパスを取得
+        song.fileExists = true; // ファイルが存在することを示すフラグ
         matchCount++;
-        
+
         if (logDetails) {
-          console.log(`マッチ成功: "${song.filename}" => "${song.filePath}"`);
+          console.log(`  -> マッチ成功: Path = ${song.filePath}`);
         }
       } else {
+        song.filePath = ''; // マッチしなかった場合はパスをクリア
+        song.fileExists = false; // ファイルが存在しないフラグ
         noMatchCount++;
-        
-        if (logDetails) {
-          console.log(`マッチ失敗: "${song.filename}" - ファイルが見つかりません`);
+
+        if (logDetails && csvBaseNameLower) {
+            console.log(`  -> マッチ失敗: ベース名 "${csvBaseNameLower}" のファイルが見つかりません`);
+        } else if (logDetails && !csvBaseNameLower) {
+            console.log(`  -> マッチ失敗: CSVのファイル名からベース名を取得できませんでした`);
         }
       }
     });
-    
-    console.log(`マッチング処理完了: ${matchCount}/${songData.length}曲のファイルとマッチしました。`);
-    console.log(`マッチしなかった曲: ${noMatchCount}曲`);
-    
-    // マッチしたファイルが一つもない場合はエラー
-    if (matchCount === 0) {
-      console.error('一つもマッチする楽曲がありませんでした');
-      throw new Error('楽曲データとファイルがマッチしませんでした。ファイル名の形式を確認してください。');
+
+    console.log(`[renderer.js] マッチング処理完了: ${matchCount} / ${songData.length} 曲のファイルとマッチしました。`);
+    console.log(`[renderer.js] マッチしなかった曲数: ${noMatchCount}`);
+
+    // マッチしたファイルが一つもない場合のエラーハンドリング (より具体的に)
+    if (matchCount === 0 && songData.length > 0) {
+      const errorMsg = '楽曲データと音声ファイルが一つもマッチしませんでした。\n\n' +
+                       '考えられる原因:\n' +
+                       '- 音楽フォルダの指定が間違っている。\n' +
+                       '- CSVファイルの「ファイル名」列の値が、実際の音声ファイル名（拡張子を除く）と異なっている。\n' +
+                       '- CSVファイルの内容が空、または形式が正しくない。\n' +
+                       '- 音楽フォルダ内に対応する音声ファイルが存在しない。\n\n' +
+                       '設定とファイルを確認してください。';
+      console.error('[renderer.js] ' + errorMsg.replace(/\n/g, ' '));
+      alert(errorMsg);
+      // 必要であれば、ここで処理を中断するなどの対応を追加
+      // 例: return false; や throw new Error(...);
     }
   } catch (error) {
-    console.error('ファイルマッチングエラー:', error);
-    throw new Error(`ファイルマッチングエラー: ${error.message}`);
+    console.error('[renderer.js] ファイルマッチングエラー:', error);
+    alert(`ファイルのマッチング処理中にエラーが発生しました: ${error.message}`);
+    throw new Error(`ファイルマッチングエラー: ${error.message}`); // エラーを再スローして startApplication で捕捉可能にする
   }
 }
 
