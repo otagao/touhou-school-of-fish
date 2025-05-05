@@ -4,6 +4,7 @@ let csvFilePath = '';
 let songData = [];
 let currentSong = null;
 let audioPlayer = null;
+let isMusicDirSet = false;
 
 /**
  * ファイル名またはフルパスから拡張子を除いたファイル名本体を取得する
@@ -84,67 +85,96 @@ async function selectCsvFile() {
 // 開始条件のチェック
 function checkStartConditions() {
   const startButton = document.getElementById('startApp');
-  startButton.disabled = !(musicDirectory && csvFilePath);
+  startButton.disabled = !csvFilePath;
 }
 
 // アプリケーション開始
 async function startApplication() {
   try {
-    console.log('アプリケーション開始処理を開始します');
-    console.log('音楽ディレクトリ:', musicDirectory);
-    console.log('CSVファイルパス:', csvFilePath);
-    
-    // CSVファイルを読み込む
-    console.log('CSVファイルの読み込みを開始...');
+    console.log('[renderer.js] アプリケーション開始処理を開始します');
+    // musicDirectory が設定されているかどうかのフラグを更新
+    isMusicDirSet = !!musicDirectory; // musicDirectoryが空文字列でなければ true
+    console.log(`[renderer.js] 音楽ディレクトリ設定状態: ${isMusicDirSet}`);
+    console.log('[renderer.js] CSVファイルパス:', csvFilePath);
+
+    // --- CSVファイルの読み込みとパース (必須処理) ---
+    console.log('[renderer.js] CSVファイルの読み込みを開始...');
     const csvContent = await window.electronAPI.readFile(csvFilePath);
     if (!csvContent) {
-      console.error('CSVファイルの読み込みに失敗しました');
+      console.error('[renderer.js] CSVファイルの読み込みに失敗しました');
       alert('CSVファイルの読み込みに失敗しました。');
       return;
     }
-    console.log('CSVファイルの読み込み成功。最初の100文字:', csvContent.substring(0, 100));
-    
-    // CSVをパース
-    console.log('CSVデータのパースを開始...');
-    parseSongData(csvContent);
-    console.log(`CSVパース完了。${songData.length}曲のデータを読み込みました`);
-    
-    // 音楽ファイル一覧を取得
-    console.log('音楽ファイル一覧の取得を開始...');
-    const audioFiles = await window.electronAPI.getFilesInDirectory(musicDirectory, ['.mp3', '.wav', '.flac']);
-    console.log(`音楽ファイル一覧取得完了。${audioFiles.length}個のファイルを検出`);
-    if (audioFiles.length === 0) {
-      console.error('音楽ファイルが見つかりませんでした');
-      alert('選択したディレクトリに音楽ファイルが見つかりませんでした。');
-      return;
+    console.log('[renderer.js] CSVファイルの読み込み成功。');
+
+    console.log('[renderer.js] CSVデータのパースを開始...');
+    parseSongData(csvContent); // songData が設定される
+    console.log(`[renderer.js] CSVパース完了。${songData.length}曲のデータを読み込みました`);
+    if (songData.length === 0) {
+        alert('CSVファイルから有効な楽曲データを読み込めませんでした。');
+        return; // 楽曲データがない場合はここで終了
     }
-    
-    // ファイル名と楽曲データをマッチング
-    console.log('ファイルと楽曲データのマッチングを開始...');
-    matchSongsWithFiles(audioFiles);
-    
-    // UIを切り替え
-    console.log('UIを切り替えます');
+
+    // --- 音楽ファイルの処理 (musicDirectory が設定されている場合のみ) ---
+    let audioFiles = []; // デフォルトは空配列
+    if (isMusicDirSet) {
+      console.log('[renderer.js] 音楽ファイル一覧の取得を開始 (ディレクトリ指定あり)...');
+      console.log('[renderer.js] 音楽ディレクトリ:', musicDirectory);
+      try {
+          audioFiles = await window.electronAPI.getFilesInDirectory(musicDirectory, ['.mp3', '.wav', '.flac']);
+          console.log(`[renderer.js] 音楽ファイル一覧取得完了。${audioFiles.length}個のファイルを検出`);
+
+          if (audioFiles.length === 0) {
+              console.warn('[renderer.js] 指定されたディレクトリに音楽ファイルが見つかりませんでした。');
+              // ファイルが見つからなくても処理は続行する（マッチング処理で fileExists が false になる）
+              alert('指定されたディレクトリに音楽ファイルが見つかりませんでした。\nリストは表示されますが、再生はできません。');
+          }
+
+          // ファイル名と楽曲データをマッチング
+          console.log('[renderer.js] ファイルと楽曲データのマッチングを開始...');
+          matchSongsWithFiles(audioFiles); // audioFiles が空でも動作する想定
+
+      } catch (error) {
+           console.error(`[renderer.js] 音楽ディレクトリ処理中にエラー: ${error.message}`);
+           alert(`音楽ディレクトリの処理中にエラーが発生しました: ${error.message}\nリストは表示されますが、再生機能に問題がある可能性があります。`);
+           // エラーが発生しても、CSVデータがあればリスト表示は試みる
+           // そのため、マッチング処理はスキップし、全曲 fileExists=false 扱いにする
+           songData.forEach(song => {
+               song.filePath = '';
+               song.fileExists = false;
+           });
+      }
+    } else {
+      console.log('[renderer.js] 音楽ディレクトリが指定されていないため、ファイル検索とマッチングをスキップします。');
+      // musicDirectory が未指定の場合、全曲の filePath と fileExists を初期化
+      songData.forEach(song => {
+        song.filePath = '';
+        song.fileExists = false;
+      });
+    }
+
+    // --- UIの更新 ---
+    console.log('[renderer.js] UIを切り替えます');
     document.getElementById('setupPanel').classList.add('hidden');
     document.getElementById('mainPanel').classList.remove('hidden');
-    
-    // 聴取モードを表示
-    console.log('聴取モードを表示します');
-    switchMode('listeningMode');
-    
-    // 楽曲リストを表示
-    console.log('楽曲リストを表示します');
-    renderSongList();
-    
+
+    console.log('[renderer.js] 聴取モードを表示します');
+    switchMode('listeningMode'); // デフォルトで聴取モードを表示
+
+    console.log('[renderer.js] 楽曲リストを表示します');
+    renderSongList(); // 修正された renderSongList を呼び出す
+
     // 設定画面の値を更新
-    document.getElementById('musicDirPathSettings').value = musicDirectory;
+    document.getElementById('musicDirPathSettings').value = musicDirectory; // 空の場合もある
     document.getElementById('csvFilePathSettings').value = csvFilePath;
-    console.log('アプリケーション開始処理が完了しました');
+    console.log('[renderer.js] アプリケーション開始処理が完了しました');
+
   } catch (error) {
-    console.error('アプリケーション開始エラー:', error);
-    console.error('エラーの詳細:', error.message);
-    console.error('エラーのスタックトレース:', error.stack);
-    alert(`アプリケーションの開始に失敗しました。エラー: ${error.message}`);
+    console.error('[renderer.js] アプリケーション開始エラー:', error);
+    alert(`アプリケーションの開始に失敗しました。\nエラー: ${error.message}`);
+    // エラー発生時は初期設定画面に戻すなどの処理が必要かもしれない
+    // document.getElementById('setupPanel').classList.remove('hidden');
+    // document.getElementById('mainPanel').classList.add('hidden');
   }
 }
 
@@ -318,117 +348,197 @@ function matchSongsWithFiles(audioFiles) {
 // 楽曲リストの表示
 function renderSongList() {
   const songListElement = document.getElementById('songList');
-  songListElement.innerHTML = '';
-  
-  songData.forEach((song, index) => {
-    if (!song.filePath) return; // ファイルが見つからない曲はスキップ
-    
+  songListElement.innerHTML = ''; // リストをクリア
+
+  const songsToRender = filterSongsInternal(); // 現在のフィルター/検索条件で曲を取得
+
+  if (songsToRender.length === 0) {
+      songListElement.innerHTML = '<p style="padding: 10px; color: #666;">表示する楽曲がありません。</p>';
+      return;
+  }
+
+  songsToRender.forEach((song) => { // songData ではなくフィルタリング結果を使う
+    // songData 配列内での元のインデックスを探す（クリックイベントで必要）
+    const originalIndex = songData.findIndex(s => s === song);
+
     const songElement = document.createElement('div');
     songElement.className = 'song-item';
-    songElement.dataset.index = index;
+    songElement.dataset.index = originalIndex; // songData 配列のインデックスを使う
     songElement.textContent = song.title;
-    songElement.addEventListener('click', () => selectSong(index));
-    
+
+    // ★★★ 音楽ディレクトリが設定されていて、かつファイルが存在しない場合にクラスを追加 ★★★
+    if (isMusicDirSet && !song.fileExists) {
+      songElement.classList.add('file-missing');
+      songElement.title = '対応する音声ファイルが見つかりません'; // ツールチップを追加
+    }
+
+    songElement.addEventListener('click', () => selectSong(originalIndex)); // 元のインデックスで選択
+
     songListElement.appendChild(songElement);
   });
 }
 
 // 曲の選択処理
 function selectSong(index) {
-  console.log(`曲を選択: インデックス ${index}`);
-  
+  if (index < 0 || index >= songData.length) {
+      console.error(`[renderer.js] 不正なインデックスで selectSong が呼ばれました: ${index}`);
+      return;
+  }
+  console.log(`[renderer.js] 曲を選択: インデックス ${index}`);
+
+  currentSong = songData[index]; // 選択された曲を更新
+
+  // --- UI更新 ---
   // 前の選択をクリア
   const selectedItems = document.querySelectorAll('.song-item.active');
   selectedItems.forEach(item => item.classList.remove('active'));
-  
+
   // 新しい選択をハイライト
   const newSelectedItem = document.querySelector(`.song-item[data-index="${index}"]`);
   if (newSelectedItem) {
     newSelectedItem.classList.add('active');
   }
-  
+
   // 選択した曲の情報を表示
-  currentSong = songData[index];
-  console.log(`選択された曲: ${currentSong.title}, ファイル: ${currentSong.filename}`);
-  
+  console.log(`[renderer.js] 選択された曲: ${currentSong.title}, ファイル存在: ${currentSong.fileExists}, 音楽Dir設定: ${isMusicDirSet}`);
   document.getElementById('nowPlayingTitle').textContent = currentSong.title;
-  document.getElementById('nowPlayingDetails').textContent = 
-    `${currentSong.game} (${currentSong.type} ${currentSong.character ? '/ ' + currentSong.character : ''})`;
-  
-  // 再生ボタンを有効化
-  document.getElementById('playBtn').disabled = false;
-  document.getElementById('pauseBtn').disabled = true;
-  document.getElementById('stopBtn').disabled = true;
-  
+  document.getElementById('nowPlayingDetails').textContent =
+    `${currentSong.game || 'N/A'} (${currentSong.type || 'N/A'} ${currentSong.character ? '/ ' + currentSong.character : ''})`;
+
+  // --- 再生ボタンの状態制御 ---
+  const playBtn = document.getElementById('playBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+
+  // ★★★ 音楽ディレクトリが設定されていて、かつファイルが存在する場合のみ再生ボタンを有効化 ★★★
+  if (isMusicDirSet && currentSong.fileExists && currentSong.filePath) {
+      playBtn.disabled = false;
+      pauseBtn.disabled = true; // 初期状態は一時停止不可
+      stopBtn.disabled = true;  // 初期状態は停止不可
+  } else {
+      // それ以外（音楽Dir未設定 or ファイル欠損）の場合は再生関連ボタンを無効化
+      playBtn.disabled = true;
+      pauseBtn.disabled = true;
+      stopBtn.disabled = true;
+  }
+
   // すでに再生中の曲があれば停止
   if (audioPlayer) {
-    console.log('既存のオーディオプレーヤーを停止します');
-    audioPlayer.pause();
-    audioPlayer = null;
+    console.log('[renderer.js] 既存のオーディオプレーヤーを停止します');
+    stopSongInternal(); // 内部停止処理を呼び出す
   }
 }
 
 // 楽曲の再生
 function playSong() {
-  if (!currentSong) return;
-  
+  if (!currentSong || !currentSong.filePath || !isMusicDirSet) {
+      console.warn('[renderer.js] 再生条件を満たしていません。', { currentSong, isMusicDirSet });
+      return;
+  }
+
   try {
-    console.log(`楽曲の再生を開始します: ${currentSong.title}, ファイルパス: ${currentSong.filePath}`);
-    
-    // 以前のオーディオプレーヤーが存在する場合は破棄する
-    if (audioPlayer) {
-      console.log('以前のオーディオプレーヤーを破棄します');
-      audioPlayer.pause();
-      audioPlayer = null;
-    }
-    
-    // 新しいオーディオプレーヤーを作成
-    console.log('新しいオーディオプレーヤーを作成します');
+    console.log(`[renderer.js] 楽曲の再生を開始します: ${currentSong.title}, ファイルパス: ${currentSong.filePath}`);
+    stopSongInternal(); // 念のため、開始前に既存のプレーヤーを停止・破棄
+
+    console.log('[renderer.js] 新しいオーディオプレーヤーを作成します');
     audioPlayer = new Audio(currentSong.filePath);
     const volume = document.getElementById('volumeSlider').value / 100;
     audioPlayer.volume = volume;
-    
-    audioPlayer.addEventListener('ended', () => {
-      console.log('楽曲の再生が終了しました');
-      document.getElementById('playBtn').disabled = false;
-      document.getElementById('pauseBtn').disabled = true;
-      document.getElementById('stopBtn').disabled = true;
+
+    audioPlayer.addEventListener('loadedmetadata', () => {
+        console.log('[renderer.js] オーディオメタデータ読み込み完了');
     });
-    
-    // 楽曲を再生
-    console.log('楽曲の再生を開始します');
-    audioPlayer.play();
-    
-    // ボタン状態の更新
-    document.getElementById('playBtn').disabled = true;
-    document.getElementById('pauseBtn').disabled = false;
-    document.getElementById('stopBtn').disabled = false;
-    
-    console.log('楽曲の再生処理が完了しました');
+    audioPlayer.addEventListener('canplay', () => {
+        console.log('[renderer.js] 再生準備完了');
+        audioPlayer.play().catch(e => { // play()もPromiseを返すのでcatchを追加
+            console.error('[renderer.js] 再生開始エラー:', e);
+            alert(`楽曲の再生開始に失敗しました: ${e.message}`);
+            updatePlayButtons(false); // 再生失敗時はボタン状態を元に戻す
+        });
+        console.log('[renderer.js] 再生を開始しました');
+        updatePlayButtons(true); // 再生中のボタン状態に更新
+    });
+    audioPlayer.addEventListener('ended', () => {
+      console.log('[renderer.js] 楽曲の再生が終了しました');
+      updatePlayButtons(false); // 再生終了時のボタン状態
+    });
+    audioPlayer.addEventListener('error', (e) => {
+        console.error('[renderer.js] オーディオ再生エラー:', audioPlayer.error);
+        alert(`楽曲の再生中にエラーが発生しました: ${audioPlayer.error?.message || '不明なエラー'}`);
+        updatePlayButtons(false); // エラー時もボタン状態をリセット
+    });
+
+    console.log('[renderer.js] オーディオの読み込みを開始します...');
+    audioPlayer.load(); // 明示的にロードを開始
+
   } catch (error) {
-    console.error('再生エラー:', error);
-    alert(`楽曲の再生に失敗しました: ${error.message}`);
+    console.error('[renderer.js] 再生処理でのエラー:', error);
+    alert(`楽曲の再生準備中にエラーが発生しました: ${error.message}`);
+    updatePlayButtons(false); // エラー時もボタン状態をリセット
   }
 }
 
 // 楽曲の一時停止
 function pauseSong() {
-  if (audioPlayer) {
+  if (audioPlayer && !audioPlayer.paused) {
     audioPlayer.pause();
-    document.getElementById('playBtn').disabled = false;
-    document.getElementById('pauseBtn').disabled = true;
-    document.getElementById('stopBtn').disabled = false;
+    console.log('[renderer.js] 楽曲を一時停止しました');
+    updatePlayButtons(false, true); // 一時停止中のボタン状態
   }
 }
 
 // 楽曲の停止
 function stopSong() {
+  stopSongInternal();
+  updatePlayButtons(false); // 停止後のボタン状態
+}
+
+function stopSongInternal() {
   if (audioPlayer) {
-    audioPlayer.pause();
-    audioPlayer.currentTime = 0;
-    document.getElementById('playBtn').disabled = false;
-    document.getElementById('pauseBtn').disabled = true;
-    document.getElementById('stopBtn').disabled = true;
+      audioPlayer.pause();
+      audioPlayer.currentTime = 0;
+      // イベントリスナーを削除してメモリリークを防ぐ (より安全に)
+      audioPlayer.removeEventListener('loadedmetadata', null);
+      audioPlayer.removeEventListener('canplay', null);
+      audioPlayer.removeEventListener('ended', null);
+      audioPlayer.removeEventListener('error', null);
+      audioPlayer.src = ''; // ソースをクリア
+      audioPlayer = null; // 参照を破棄
+      console.log('[renderer.js] オーディオプレーヤーを停止・破棄しました');
+  }
+}
+
+// 再生ボタンの状態を更新するヘルパー関数
+/**
+ * 再生コントロールボタンの状態を更新する
+ * @param {boolean} isPlaying 再生中かどうか
+ * @param {boolean} isPaused 一時停止中かどうか (isPlaying=false の場合のみ有効)
+ */
+function updatePlayButtons(isPlaying, isPaused = false) {
+  const playBtn = document.getElementById('playBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+
+  if (!currentSong || !isMusicDirSet || !currentSong.fileExists) {
+      // 再生不可能な状態なら全て無効
+      playBtn.disabled = true;
+      pauseBtn.disabled = true;
+      stopBtn.disabled = true;
+      return;
+  }
+
+  if (isPlaying) {
+      playBtn.disabled = true;
+      pauseBtn.disabled = false;
+      stopBtn.disabled = false;
+  } else if (isPaused) { // 一時停止中
+      playBtn.disabled = false;
+      pauseBtn.disabled = true;
+      stopBtn.disabled = false; // 停止は可能
+  } else { // 停止中 (または初期状態)
+      playBtn.disabled = false;
+      pauseBtn.disabled = true;
+      stopBtn.disabled = true;
   }
 }
 
@@ -442,18 +552,23 @@ function adjustVolume() {
 
 // 楽曲のフィルタリング
 function filterSongs() {
+  console.log("[renderer.js] フィルター/検索が変更されました。リストを再描画します。");
+  renderSongList(); // フィルタリング結果を使ってリストを再描画
+}
+
+// 内部用のフィルタリング処理関数
+/**
+ * 現在のフィルター/検索条件に基づいて楽曲データをフィルタリングする
+ * @returns {Array} フィルタリングされた楽曲データの配列
+ */
+function filterSongsInternal() {
   const searchTerm = document.getElementById('songSearch').value.toLowerCase();
   const filterType = document.getElementById('songFilter').value;
-  
-  const songListElement = document.getElementById('songList');
-  songListElement.innerHTML = '';
-  
-  songData.forEach((song, index) => {
-    if (!song.filePath) return; // ファイルが見つからない曲はスキップ
-    
+
+  return songData.filter(song => {
     // 検索条件と一致するか確認
     const titleMatch = song.title.toLowerCase().includes(searchTerm);
-    
+
     // フィルタ条件と一致するか確認
     let typeMatch = true;
     if (filterType === 'original' && song.type !== '初出') {
@@ -461,16 +576,9 @@ function filterSongs() {
     } else if (filterType === 'arrange' && song.type !== 'アレンジ') {
       typeMatch = false;
     }
-    
-    if (titleMatch && typeMatch) {
-      const songElement = document.createElement('div');
-      songElement.className = 'song-item';
-      songElement.dataset.index = index;
-      songElement.textContent = song.title;
-      songElement.addEventListener('click', () => selectSong(index));
-      
-      songListElement.appendChild(songElement);
-    }
+    // 他のフィルター条件があればここに追加...
+
+    return titleMatch && typeMatch;
   });
 }
 
