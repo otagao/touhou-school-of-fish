@@ -147,19 +147,59 @@
     height: 300px;
     overflow-y: auto;
     border: 1px solid #ddd;
-    padding: 10px;
-    border-radius: 4px;
+    border-top: none; /* 上のボーダーを削除（ヘッダーと接続） */
+    padding: 0; /* パディングを削除してヘッダーと揃える */
+    border-radius: 0 0 4px 4px; /* 下端のみ角丸 */
     background-color: #fff; /* 背景色を明示 */
   }
   
   .song-item {
-    padding: 8px 12px; /* 少しパディング調整 */
+    display: flex; /* 2列レイアウトのためにflexを使用 */
+    padding: 8px 12px; /* ヘッダーと同じパディング */
     cursor: pointer;
     border-bottom: 1px solid #eee;
     transition: background-color 0.2s ease; /* ホバー効果をスムーズに */
+    align-items: center; /* 縦方向の中央揃え */
+  }
+
+  .song-title {
+    flex: 2; /* タイトル列を広めに設定 */
     white-space: nowrap; /* 長い曲名が折り返さないように */
     overflow: hidden;
     text-overflow: ellipsis; /* はみ出したテキストを...で表示 */
+    margin-right: 10px; /* キャラクター列との間隔 */
+  }
+
+  .song-character {
+    flex: 1; /* キャラクター列をタイトルより狭く設定 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #666; /* 少し薄い色で表示 */
+    font-size: 0.9em; /* 少し小さく表示 */
+    text-align: right; /* 右寄せ */
+  }
+
+  /* 楽曲リストの固定ヘッダー */
+  .song-list-header-fixed {
+    display: flex;
+    padding: 8px 12px;
+    background-color: #f5f5f5; /* ヘッダー背景色 */
+    border: 1px solid #ddd; /* 全体のボーダー */
+    border-bottom: 2px solid #ddd; /* 太い下線 */
+    border-radius: 4px 4px 0 0; /* 上端のみ角丸 */
+    font-weight: bold;
+    color: #333;
+  }
+
+  .song-title-header {
+    flex: 2;
+    margin-right: 10px;
+  }
+
+  .song-character-header {
+    flex: 1;
+    text-align: right;
   }
   
   .song-item:last-child {
@@ -201,6 +241,24 @@
   
   .now-playing {
     margin-bottom: 15px;
+  }
+
+  /* 楽曲詳細情報の箇条書きスタイル */
+  .song-detail-item {
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    line-height: 1.4;
+  }
+
+  .detail-label {
+    font-weight: bold;
+    color: #555;
+    min-width: 100px;
+    display: inline-block;
+  }
+
+  .detail-value {
+    color: #333;
   }
   
   .player-controls {
@@ -263,4 +321,106 @@
   /* ユーティリティクラス */
   .hidden {
     display: none !important;
+  }
+
+
+  /* 折りたたみボタン */
+  .filter-controls-wrapper {
+    margin-bottom: 15px;
+  }
+
+  .toggle-filters-btn {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    text-align: left;
+    transition: background-color 0.2s;
+  }
+
+  .toggle-filters-btn:hover {
+    background-color: #e9ecef;
+  }
+
+  /* フィルタコントロール */
+  .filter-controls-container {
+    display: flex;
+    flex-wrap: wrap; /* 画面幅に応じて折り返し */
+    gap: 20px; /* グループ間のスペース */
+    padding: 10px 0;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee; /* 区切り線 */
+    border-top: 1px solid #eee; /* 上の区切り線も追加 */
+    margin-top: 5px;
+  }
+
+  .filter-group {
+    min-width: 180px; /* 各フィルターグループの最小幅 */
+    margin-bottom: 10px;
+  }
+
+  .filter-group h4 {
+    margin-bottom: 8px;
+    font-size: 0.95em; /* 少し小さく */
+    color: #444;
+    font-weight: bold;
+  }
+
+  .checkbox-group {
+    max-height: 100px; /* 高さが長くなりすぎないようにスクロール可能に */
+    overflow-y: auto;
+    padding-right: 8px; /* スクロールバーのためのスペース */
+    font-size: 0.9em;
+  }
+
+  .checkbox-label {
+    display: block; /* 各チェックボックスを改行表示 */
+    margin-bottom: 5px;
+    font-weight: normal;
+    cursor: pointer;
+    white-space: nowrap; /* 長いラベルが折り返さないように */
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  .no-filter-options { /* 該当オプションがない場合の表示 */
+    color: #888;
+    font-style: italic;
+    font-size: 0.9em;
+    padding: 5px 0;
+  }
+
+  /* 検索バーのマージン調整 (任意) */
+  .search-bar {
+      display: flex;
+      gap: 10px;
+      /* margin-bottom: 10px; フィルターコントロールとの間にマージンがあるので調整 */
+  }
+
+  /* ラジオボタン用のスタイル */
+  .radio-group {
+    max-height: 100px; /* 高さが長くなりすぎないようにスクロール可能に */
+    overflow-y: auto;
+    padding-right: 8px; /* スクロールバーのためのスペース */
+    font-size: 0.9em;
+  }
+
+  .radio-label {
+    display: block; /* 各ラジオボタンを改行表示 */
+    margin-bottom: 5px;
+    font-weight: normal; /* 太字を解除 */
+    cursor: pointer;
+    white-space: nowrap; /* 長いラベルが折り返さないように */
+  }
+
+  .radio-label input[type="radio"] {
+    margin-right: 6px;
+    vertical-align: middle;
   }

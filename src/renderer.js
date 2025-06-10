@@ -37,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // 聴取モードのイベントリスナー
   document.getElementById('songSearch').addEventListener('input', filterSongs);
-  document.getElementById('songFilter').addEventListener('change', filterSongs);
   document.getElementById('playBtn').addEventListener('click', playSong);
   document.getElementById('pauseBtn').addEventListener('click', pauseSong);
   document.getElementById('stopBtn').addEventListener('click', stopSong);
@@ -55,6 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('selectMusicDirSettings').addEventListener('click', selectMusicDirectorySettings);
   document.getElementById('selectCsvFileSettings').addEventListener('click', selectCsvFileSettings);
   document.getElementById('applySettingsBtn').addEventListener('click', applySettings);
+  
+  // 絞り込みフィルターの折りたたみボタン
+  document.getElementById('toggleFilters').addEventListener('click', toggleFilters);
   
   // ライブラリの準備
   // Howlerは実際に使用するときに初期化
@@ -162,6 +164,7 @@ async function startApplication() {
     switchMode('listeningMode'); // デフォルトで聴取モードを表示
 
     console.log('[renderer.js] 楽曲リストを表示します');
+    renderFilterControls();
     renderSongList(); // 修正された renderSongList を呼び出す
 
     // 設定画面の値を更新
@@ -176,6 +179,187 @@ async function startApplication() {
     // document.getElementById('setupPanel').classList.remove('hidden');
     // document.getElementById('mainPanel').classList.add('hidden');
   }
+}
+
+// ★新規追加: フィルターコントロールを動的に生成する関数群
+/**
+ * 指定された属性のユニークな値を取得する（フィルターオプション用）
+ * @param {string} attribute 楽曲オブジェクトの属性名
+ * @param {string[]} predefinedValues 事前定義された値の配列（データに無くても表示したい場合）
+ * @returns {string[]} ソート済みのユニークな値の配列
+ */
+function getUniqueValuesForFilter(attribute, predefinedValues = []) {
+  if (!songData || songData.length === 0) return [...predefinedValues].sort();
+  const uniqueValues = new Set(predefinedValues);
+  songData.forEach(song => {
+    if (song[attribute] && typeof song[attribute] === 'string' && song[attribute].trim() !== '') {
+      uniqueValues.add(song[attribute].trim());
+    }
+  });
+  return Array.from(uniqueValues).sort();
+}
+
+/**
+ * フィルターコントロール（チェックボックス）を描画する
+ */
+function renderFilterControls() {
+  const typeContainer = document.getElementById('typeFilters');
+  const generationContainer = document.getElementById('generationFilters');
+  const stageContainer = document.getElementById('stageFilters');
+
+  typeContainer.innerHTML = '';
+  generationContainer.innerHTML = '';
+  stageContainer.innerHTML = '';
+
+  const predefinedTypes = ['初出', 'アレンジ', '再録'];
+  const predefinedGenerations = ['旧作', '現行', '西方等', '黄昏'];
+  // ステージ・場面はデータからのみ取得（事前定義なし）
+
+  const types = getUniqueValuesForFilter('type', predefinedTypes);
+  const generations = getUniqueValuesForFilter('generation', predefinedGenerations);
+  const stages = getUniqueValuesForFilter('stage');
+
+  createCheckboxesForGroup(types, typeContainer, 'typeFilter');
+  createCheckboxesForGroup(generations, generationContainer, 'generationFilter');
+  createRadioButtonsForGroup(stages, stageContainer, 'stageFilter');
+}
+
+/**
+ * 指定された値の配列からチェックボックス群を作成し、コンテナに追加する
+ * @param {string[]} values チェックボックスにする値の配列
+ * @param {HTMLElement} container チェックボックスを追加する親要素
+ * @param {string} groupName チェックボックスグループの名前 (inputのname属性)
+ */
+function createCheckboxesForGroup(values, container, groupName) {
+  if (values.length === 0) {
+    container.innerHTML = '<p class="no-filter-options">該当データなし</p>';
+    return;
+  }
+  values.forEach((value, index) => {
+    // ユニークなIDを生成（インデックスを含めることで重複を防ぐ）
+    const checkboxId = `${groupName}-${index}-${value.replace(/[^a-zA-Z0-9]/g, '-')}`;
+
+    const label = document.createElement('label');
+    label.className = 'checkbox-label';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = checkboxId;
+    checkbox.name = groupName;
+    checkbox.value = value;
+    checkbox.addEventListener('change', filterSongs); // 変更時に楽曲リストを更新
+
+    // ラベルにinput要素を最初に追加し、その後にテキストを追加
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(value));
+    
+    // ラベル自体にクリックイベントを追加して確実に動作させる
+    label.addEventListener('click', (e) => {
+      // チェックボックス自体がクリックされた場合は何もしない（ブラウザの標準動作に任せる）
+      if (e.target === checkbox) {
+        return;
+      }
+      // ラベルテキスト部分がクリックされた場合
+      e.preventDefault();
+      checkbox.checked = !checkbox.checked;
+      checkbox.dispatchEvent(new Event('change'));
+    });
+    
+    container.appendChild(label);
+  });
+}
+
+/**
+ * 指定された値の配列からラジオボタン群を作成し、コンテナに追加する
+ * @param {string[]} values ラジオボタンにする値の配列
+ * @param {HTMLElement} container ラジオボタンを追加する親要素
+ * @param {string} groupName ラジオボタングループの名前 (inputのname属性)
+ */
+function createRadioButtonsForGroup(values, container, groupName) {
+  if (values.length === 0) {
+    container.innerHTML = '<p class="no-filter-options">該当データなし</p>';
+    return;
+  }
+  
+  // 「すべて」オプションを最初に追加
+  const allRadioId = `${groupName}-all-0`;
+  const allLabel = document.createElement('label');
+  allLabel.className = 'radio-label';
+
+  const allRadio = document.createElement('input');
+  allRadio.type = 'radio';
+  allRadio.id = allRadioId;
+  allRadio.name = groupName;
+  allRadio.value = '';
+  allRadio.checked = true; // デフォルトで選択状態
+  allRadio.addEventListener('change', filterSongs);
+
+  allLabel.appendChild(allRadio);
+  allLabel.appendChild(document.createTextNode('すべて'));
+  
+  // ラベル自体にクリックイベントを追加
+  allLabel.addEventListener('click', (e) => {
+    if (e.target === allRadio) {
+      return;
+    }
+    e.preventDefault();
+    allRadio.checked = true;
+    allRadio.dispatchEvent(new Event('change'));
+  });
+  
+  container.appendChild(allLabel);
+  
+  // 各値のラジオボタンを作成
+  values.forEach((value, index) => {
+    // ユニークなIDを生成（インデックスを含めることで重複を防ぐ）
+    const radioId = `${groupName}-${index + 1}-${value.replace(/[^a-zA-Z0-9]/g, '-')}`;
+
+    const label = document.createElement('label');
+    label.className = 'radio-label';
+
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.id = radioId;
+    radio.name = groupName;
+    radio.value = value;
+    radio.addEventListener('change', filterSongs);
+
+    label.appendChild(radio);
+    label.appendChild(document.createTextNode(value));
+    
+    // ラベル自体にクリックイベントを追加
+    label.addEventListener('click', (e) => {
+      if (e.target === radio) {
+        return;
+      }
+      e.preventDefault();
+      radio.checked = true;
+      radio.dispatchEvent(new Event('change'));
+    });
+    
+    container.appendChild(label);
+  });
+}
+
+// ★新規追加: 選択されたチェックボックスの値を取得するヘルパー
+/**
+ * 指定されたグループ名のチェックボックスから選択されている値の配列を取得する
+ * @param {string} groupName チェックボックスのname属性
+ * @returns {string[]} 選択された値の配列
+ */
+function getSelectedCheckboxValues(groupName) {
+  const checkboxes = document.querySelectorAll(`input[name="${groupName}"]:checked`);
+  return Array.from(checkboxes).map(cb => cb.value);
+}
+
+/**
+ * 指定されたグループ名のラジオボタンから選択されている値を取得する
+ * @param {string} groupName ラジオボタンのname属性
+ * @returns {string} 選択された値（未選択や「すべて」の場合は空文字列）
+ */
+function getSelectedRadioValue(groupName) {
+  const radio = document.querySelector(`input[name="${groupName}"]:checked`);
+  return radio ? radio.value : '';
 }
 
 // CSVデータのパース処理
@@ -221,11 +405,12 @@ function parseSongData(csvContent) {
       // CSVフォーマット: ファイル名,曲名,旧作or現行,初出orアレンジ,登場作品,担当キャラクター
       song.filename = values[0]?.trim() || '';
       song.title = values[1]?.trim() || '';
-      song.generation = values[2]?.trim() || ''; // 旧作or現行
-      song.type = values[3]?.trim() || ''; // 初出orアレンジ
-      song.game = values[4]?.trim() || ''; // 登場作品
-      song.character = values[5]?.trim() || ''; // 担当キャラクター
-      song.filePath = ''; // 実際のファイルパスは後で設定
+      song.generation = values[2]?.trim() || '';
+      song.type = values[3]?.trim() || '';
+      song.game = values[4]?.trim() || '';
+      song.character = values[5]?.trim() || '';
+      song.stage = values[6]?.trim() || ''; // ★追加: ステージ・場面
+      song.filePath = '';
       
       if (!song.filename || !song.title) {
         console.warn(`行 ${i}: ファイル名または曲名が空のため、この行はスキップします`);
@@ -348,14 +533,19 @@ function matchSongsWithFiles(audioFiles) {
 // 楽曲リストの表示
 function renderSongList() {
   const songListElement = document.getElementById('songList');
+  const songListHeader = document.getElementById('songListHeader');
   songListElement.innerHTML = ''; // リストをクリア
 
   const songsToRender = filterSongsInternal(); // 現在のフィルター/検索条件で曲を取得
 
   if (songsToRender.length === 0) {
-      songListElement.innerHTML = '<p style="padding: 10px; color: #666;">表示する楽曲がありません。</p>';
+      songListElement.innerHTML = '<p style="padding: 20px 12px; color: #666; text-align: center; margin: 0;">表示する楽曲がありません。</p>';
+      songListHeader.style.display = 'none'; // ヘッダーを非表示
       return;
   }
+
+  // ヘッダーを表示
+  songListHeader.style.display = 'flex';
 
   songsToRender.forEach((song) => { // songData ではなくフィルタリング結果を使う
     // songData 配列内での元のインデックスを探す（クリックイベントで必要）
@@ -364,7 +554,19 @@ function renderSongList() {
     const songElement = document.createElement('div');
     songElement.className = 'song-item';
     songElement.dataset.index = originalIndex; // songData 配列のインデックスを使う
-    songElement.textContent = song.title;
+
+    // タイトル列
+    const titleCell = document.createElement('div');
+    titleCell.className = 'song-title';
+    titleCell.textContent = song.title;
+
+    // キャラクター列
+    const characterCell = document.createElement('div');
+    characterCell.className = 'song-character';
+    characterCell.textContent = song.character || ''; // キャラクターが未設定の場合は空文字
+
+    songElement.appendChild(titleCell);
+    songElement.appendChild(characterCell);
 
     // ★★★ 音楽ディレクトリが設定されていて、かつファイルが存在しない場合にクラスを追加 ★★★
     if (isMusicDirSet && !song.fileExists) {
@@ -402,8 +604,27 @@ function selectSong(index) {
   // 選択した曲の情報を表示
   console.log(`[renderer.js] 選択された曲: ${currentSong.title}, ファイル存在: ${currentSong.fileExists}, 音楽Dir設定: ${isMusicDirSet}`);
   document.getElementById('nowPlayingTitle').textContent = currentSong.title;
-  document.getElementById('nowPlayingDetails').textContent =
-    `${currentSong.game || 'N/A'} (${currentSong.type || 'N/A'} ${currentSong.character ? '/ ' + currentSong.character : ''})`;
+  
+  // 詳細情報を箇条書き形式で作成
+  const detailsElement = document.getElementById('nowPlayingDetails');
+  detailsElement.innerHTML = ''; // 既存の内容をクリア
+  
+  const details = [
+    { label: 'タイプ', value: currentSong.type },
+    { label: 'シリーズ区分', value: currentSong.generation },
+    { label: '作品名', value: currentSong.game },
+    { label: '場面', value: currentSong.stage },
+    { label: 'キャラクター', value: currentSong.character }
+  ];
+  
+  details.forEach(detail => {
+    if (detail.value && detail.value.trim() !== '') {
+      const listItem = document.createElement('div');
+      listItem.className = 'song-detail-item';
+      listItem.innerHTML = `<span class="detail-label">${detail.label}:</span> <span class="detail-value">${detail.value}</span>`;
+      detailsElement.appendChild(listItem);
+    }
+  });
 
   // --- 再生ボタンの状態制御 ---
   const playBtn = document.getElementById('playBtn');
@@ -562,23 +783,49 @@ function filterSongs() {
  * @returns {Array} フィルタリングされた楽曲データの配列
  */
 function filterSongsInternal() {
-  const searchTerm = document.getElementById('songSearch').value.toLowerCase();
-  const filterType = document.getElementById('songFilter').value;
+  const searchTermInput = document.getElementById('songSearch').value;
+  const keywords = searchTermInput.toLowerCase().split(' ').filter(k => k.trim() !== '');
+
+  // チェックボックスとラジオボタンから選択された値を取得
+  const selectedTypes = getSelectedCheckboxValues('typeFilter');
+  const selectedGenerations = getSelectedCheckboxValues('generationFilter');
+  const selectedStage = getSelectedRadioValue('stageFilter');
+  // 他のフィルターグループがあればここに追加
 
   return songData.filter(song => {
-    // 検索条件と一致するか確認
-    const titleMatch = song.title.toLowerCase().includes(searchTerm);
-
-    // フィルタ条件と一致するか確認
-    let typeMatch = true;
-    if (filterType === 'original' && song.type !== '初出') {
-      typeMatch = false;
-    } else if (filterType === 'arrange' && song.type !== 'アレンジ') {
-      typeMatch = false;
+    // 1. テキスト検索 (AND検索) - titleとcharacterのみに限定
+    let keywordMatch = true;
+    if (keywords.length > 0) {
+      keywordMatch = keywords.every(keyword => {
+        const searchFields = [
+          song.title,
+          song.character
+        ];
+        return searchFields.some(field =>
+          field && typeof field === 'string' && field.toLowerCase().includes(keyword)
+        );
+      });
     }
-    // 他のフィルター条件があればここに追加...
+    if (!keywordMatch) return false;
 
-    return titleMatch && typeMatch;
+    // 2. タイプフィルター (カテゴリ内でOR、未選択ならそのカテゴリは無視)
+    if (selectedTypes.length > 0 && !selectedTypes.includes(song.type)) {
+      return false;
+    }
+
+    // 3. シリーズ区分フィルター
+    if (selectedGenerations.length > 0 && !selectedGenerations.includes(song.generation)) {
+      return false;
+    }
+
+    // 4. ステージ・場面フィルター（ラジオボタン）
+    if (selectedStage && selectedStage !== song.stage) {
+      return false;
+    }
+
+    // 他のフィルター条件があればここに追加
+
+    return true; // 全てのフィルター条件を通過
   });
 }
 
@@ -702,5 +949,21 @@ function applySettings() {
     }
   } else {
     alert('設定に変更はありませんでした。');
+  }
+}
+
+// 絞り込みフィルターの折りたたみ機能
+function toggleFilters() {
+  const filterContainer = document.getElementById('filterControlsContainer');
+  const toggleButton = document.getElementById('toggleFilters');
+  
+  if (filterContainer.classList.contains('hidden')) {
+    // 展開
+    filterContainer.classList.remove('hidden');
+    toggleButton.textContent = '詳細絞り込み ▲';
+  } else {
+    // 折りたたみ
+    filterContainer.classList.add('hidden');
+    toggleButton.textContent = '詳細絞り込み ▼';
   }
 }

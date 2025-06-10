@@ -45,13 +45,42 @@
         <h2>聴取モード</h2>
         <div class="song-list-container">
           <div class="search-bar">
-            <input type="text" id="songSearch" placeholder="曲名で検索...">
-            <select id="songFilter">
-              <option value="">すべて</option>
-              <option value="original">初出のみ</option>
-              <option value="arrange">アレンジのみ</option>
-            </select>
+            <input type="text" id="songSearch" placeholder="曲名もしくはキャラクター名で検索...">
+            <!-- <select id="songFilter">...</select>  このselect要素を削除 -->
           </div>
+          
+          <!-- ★追加: フィルターコントロールコンテナ -->
+          <div class="filter-controls-wrapper">
+            <button id="toggleFilters" class="toggle-filters-btn">詳細絞り込み ▼</button>
+            <div id="filterControlsContainer" class="filter-controls-container hidden">
+              <div class="filter-group">
+                <h4>タイプ</h4>
+                <div id="typeFilters" class="checkbox-group">
+                  <!-- タイプ (初出/アレンジ/再録など) のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>シリーズ区分</h4>
+                <div id="generationFilters" class="checkbox-group">
+                  <!-- シリーズ区分 (旧作/現行/西方等/黄昏など) のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>場面</h4>
+                <div id="stageFilters" class="radio-group">
+                  <!-- 場面のラジオボタンがここに動的に追加されます -->
+                </div>
+              </div>
+              <!-- 必要に応じて他のフィルターグループを追加 -->
+            </div>
+          </div>
+          
+          <!-- 楽曲リストヘッダー（スクロール範囲外に配置） -->
+          <div class="song-list-header-fixed" id="songListHeader" style="display: none;">
+            <div class="song-title-header">楽曲名</div>
+            <div class="song-character-header">キャラクター</div>
+          </div>
+          
           <div class="song-list" id="songList">
             <!-- 曲リストがここに動的に追加されます -->
           </div>
@@ -153,7 +182,7 @@
     </div>
     
     <footer>
-      <p>東方スクールオブフィッシュ v0.1.1</p>
+      <p>東方スクールオブフィッシュ v0.2.0</p>
     </footer>
   </div>
 

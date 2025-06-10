@@ -10,10 +10,11 @@ class Song {
     constructor(songData) {
       this.filename = songData.filename || '';
       this.title = songData.title || '';
-      this.generation = songData.generation || ''; // 旧作or現行
-      this.type = songData.type || ''; // 初出orアレンジ
+      this.generation = songData.generation || ''; // 旧作or現行、西方等、黄昏
+      this.type = songData.type || ''; // 初出orアレンジ、再録
       this.game = songData.game || ''; // 登場作品
       this.character = songData.character || ''; // 担当キャラクター
+      this.stage = songData.stage || ''; // ★追加: ステージ・場面
       this.filePath = songData.filePath || '';
       this.fileExists = !!songData.filePath;
     }
@@ -35,6 +36,11 @@ class Song {
       
       if (this.character) {
         description += ` / ${this.character}`;
+      }
+
+      // ★追加: stage情報も表示に含める場合 (任意)
+      if (this.stage) {
+        description += ` [${this.stage}]`;
       }
       
       return description;
@@ -74,6 +80,7 @@ class Song {
         type: this.type,
         game: this.game,
         character: this.character,
+        stage: this.stage, // ★追加
         filePath: this.filePath,
         fileExists: this.fileExists
       };

@@ -11,7 +11,7 @@ function parseSongDataFromCsv(csvContent) {
     // PapaParseを使った実装は、ライブラリのインポート後に切り替え
     // ここでは簡易実装
     const lines = csvContent.split('\n');
-    const headers = lines[0].split(',');
+    const headers = lines[0].split(','); // ヘッダーの列数は増える
     
     const songs = [];
     
@@ -21,13 +21,14 @@ function parseSongDataFromCsv(csvContent) {
       const values = lines[i].split(',');
       const song = {};
       
-      // CSVフォーマット: ファイル名,曲名,旧作or現行,初出orアレンジ,登場作品,担当キャラクター
+      // CSVフォーマット: ファイル名,曲名,旧作or現行,初出orアレンジ,登場作品,担当キャラクター,ステージ・場面
       song.filename = values[0]?.trim() || '';
       song.title = values[1]?.trim() || '';
-      song.generation = values[2]?.trim() || ''; // 旧作or現行
-      song.type = values[3]?.trim() || ''; // 初出orアレンジ
+      song.generation = values[2]?.trim() || ''; // 旧作or現行, 西方等, 黄昏
+      song.type = values[3]?.trim() || ''; // 初出orアレンジ, 再録
       song.game = values[4]?.trim() || ''; // 登場作品
       song.character = values[5]?.trim() || ''; // 担当キャラクター
+      song.stage = values[6]?.trim() || ''; // ★追加: ステージ・場面
       song.filePath = ''; // 実際のファイルパスは後で設定
       
       songs.push(song);
