@@ -66,6 +66,12 @@
                 </div>
               </div>
               <div class="filter-group">
+                <h4>作品名</h4>
+                <div id="gameFilters" class="checkbox-group">
+                  <!-- 作品名のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
                 <h4>場面</h4>
                 <div id="stageFilters" class="radio-group">
                   <!-- 場面のラジオボタンがここに動的に追加されます -->
@@ -107,14 +113,44 @@
         <h2>演習モード</h2>
         <div class="quiz-settings">
           <h3>出題設定</h3>
-          <div class="form-group">
-            <label for="quizFilter">絞り込み条件:</label>
-            <select id="quizFilter">
-              <option value="all">すべての曲</option>
-              <option value="original">初出曲のみ</option>
-              <option value="arrange">アレンジ曲のみ</option>
-              <!-- 追加の絞り込み条件はJSで動的に生成 -->
-            </select>
+          
+          <!-- ★追加: 絞り込み条件表示と詳細絞り込み -->
+          <div class="quiz-filter-summary">
+            <div class="song-count-display">
+              <span id="quizTotalSongs">楽曲数: 0曲</span>
+              <span id="quizAvailableSongs">| 再生可能: 0曲</span>
+            </div>
+          </div>
+          
+          <!-- ★追加: 出題絞り込みエリア -->
+          <div class="quiz-filter-section">
+            <h4>出題絞り込み</h4>
+            <div id="quizFilterControlsContainer" class="filter-controls-container">
+              <div class="filter-group">
+                <h4>タイプ</h4>
+                <div id="quizTypeFilters" class="checkbox-group">
+                  <!-- タイプ (初出/アレンジ/再録など) のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>シリーズ区分</h4>
+                <div id="quizGenerationFilters" class="checkbox-group">
+                  <!-- シリーズ区分 (旧作/現行/西方等/黄昏など) のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>作品名</h4>
+                <div id="quizGameFilters" class="checkbox-group">
+                  <!-- 作品名のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>場面</h4>
+                <div id="quizStageFilters" class="radio-group">
+                  <!-- 場面のラジオボタンがここに動的に追加されます -->
+                </div>
+              </div>
+            </div>
           </div>
           
           <div class="form-group">
@@ -182,7 +218,7 @@
     </div>
     
     <footer>
-      <p>東方スクールオブフィッシュ v0.2.0</p>
+      <p>東方スクールオブフィッシュ v0.2.1</p>
     </footer>
   </div>
 

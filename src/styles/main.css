@@ -99,6 +99,15 @@
     background-color: #388e3c;
   }
   
+  .primary-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+  }
+  
+  .primary-button:disabled:hover {
+    background-color: #cccccc;
+  }
+  
   /* パネル */
   .setup-panel, .mode-panel {
     background-color: white;
