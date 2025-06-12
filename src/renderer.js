@@ -6,6 +6,20 @@ let currentSong = null;
 let audioPlayer = null;
 let isMusicDirSet = false;
 
+// クイズ関連のグローバル変数
+let quizState = {
+  isActive: false,
+  currentQuestionIndex: 0,
+  availableSongs: [],
+  usedSongs: [],
+  correctAnswers: 0,
+  totalQuestions: 0,
+  questionStartTime: null,
+  responseTimes: [],
+  currentQuizSong: null,
+  quizAudioPlayer: null
+};
+
 /**
  * ファイル名またはフルパスから拡張子を除いたファイル名本体を取得する
  * @param {string} filePath ファイルパスまたはファイル名
@@ -46,9 +60,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('startQuizBtn').addEventListener('click', startQuiz);
   document.getElementById('submitAnswerBtn').addEventListener('click', submitAnswer);
   document.getElementById('nextQuestionBtn').addEventListener('click', nextQuestion);
-  document.getElementById('quizPlayBtn').addEventListener('click', playQuizSong);
-  document.getElementById('quizPauseBtn').addEventListener('click', pauseQuizSong);
-  document.getElementById('quizStopBtn').addEventListener('click', stopQuizSong);
+  document.getElementById('stopQuizBtn').addEventListener('click', stopQuiz);
+  
+  // 解答用テキストボックスでEnterキーを押した時の処理
+  document.getElementById('answerText').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitAnswer();
+    }
+  });
+  
+  // 演習モードの音量スライダー
+  document.getElementById('quizVolumeSlider').addEventListener('input', adjustQuizVolume);
+  
+  // 回答方式の変更イベント
+  document.getElementById('answerMode').addEventListener('change', updateQuizStartButtonForAnswerMode);
   
   // 設定画面のイベントリスナー
   document.getElementById('selectMusicDirSettings').addEventListener('click', selectMusicDirectorySettings);
@@ -859,6 +885,26 @@ function switchMode(mode) {
   document.getElementById('quizModePanel').classList.add('hidden');
   document.getElementById('settingsPanel').classList.add('hidden');
   
+  // 聴取モードの音楽が再生中なら停止
+  if (audioPlayer) {
+    audioPlayer.pause();
+    audioPlayer = null;
+  }
+  
+  // 演習モードから他のモードに切り替える場合、クイズを中止
+  if (quizState.isActive && mode !== 'quizMode') {
+    console.log('[Quiz] モード切り替えによりクイズを中止します');
+    quizState.isActive = false;
+    cleanupQuizAudioPlayer();
+    // クイズのUIも初期状態に戻す
+    document.getElementById('quizContainer').classList.add('hidden');
+    document.getElementById('quizResult').classList.add('hidden');
+    document.getElementById('nextQuestionBtn').style.display = 'none';
+    document.getElementById('submitAnswerBtn').disabled = false;
+    document.getElementById('answerText').disabled = false;
+    document.getElementById('answerText').value = '';
+  }
+  
   // 選択されたモードを表示
   if (mode === 'listeningMode') {
     document.getElementById('listeningModePanel').classList.remove('hidden');
@@ -867,12 +913,6 @@ function switchMode(mode) {
     prepareQuizMode();
   } else if (mode === 'settings') {
     document.getElementById('settingsPanel').classList.remove('hidden');
-  }
-  
-  // 音楽が再生中なら停止
-  if (audioPlayer) {
-    audioPlayer.pause();
-    audioPlayer = null;
   }
 }
 
@@ -893,43 +933,322 @@ function prepareQuizMode() {
   
   // 楽曲数をリアルタイム更新
   updateQuizSongCounts();
+  
+  // 回答方式に基づいてボタン状態を更新
+  updateQuizStartButtonForAnswerMode();
 }
 
 // クイズを開始
 function startQuiz() {
-  // TODO: クイズ機能の実装（フェーズ3）
-  alert('クイズ機能は開発中です（フェーズ3で実装予定）');
+  console.log('[Quiz] クイズを開始します');
+  
+  // 再生可能な楽曲を取得
+  const filteredSongs = filterQuizSongsInternal();
+  const availableSongs = filteredSongs.filter(song => isMusicDirSet && song.fileExists);
+  
+  if (availableSongs.length === 0) {
+    alert('再生可能な楽曲がありません。音楽ディレクトリの設定や絞り込み条件を確認してください。');
+    return;
+  }
+  
+  // クイズ状態を初期化
+  quizState = {
+    isActive: true,
+    currentQuestionIndex: 0,
+    availableSongs: [...availableSongs], // コピーを作成
+    usedSongs: [],
+    correctAnswers: 0,
+    totalQuestions: 0,
+    questionStartTime: null,
+    responseTimes: [],
+    currentQuizSong: null,
+    quizAudioPlayer: null
+  };
+  
+  console.log(`[Quiz] ${availableSongs.length}曲が出題対象です`);
+  
+  // UIを出題モードに切り替え
+  document.getElementById('quizContainer').classList.remove('hidden');
+  document.getElementById('quizResult').classList.add('hidden');
+  
+  // 最初の問題を出題
+  presentNextQuestion();
 }
+
+/**
+ * 次の問題を出題する
+ */
+function presentNextQuestion() {
+  if (!quizState.isActive) {
+    console.log('[Quiz] クイズが非アクティブなため出題を中止します');
+    return;
+  }
+  
+  // 未使用の楽曲がない場合はクイズ終了
+  if (quizState.availableSongs.length === 0) {
+    console.log('[Quiz] 全ての楽曲を出題しました。クイズを終了します');
+    endQuiz();
+    return;
+  }
+  
+  // ランダムに楽曲を選出
+  const randomIndex = Math.floor(Math.random() * quizState.availableSongs.length);
+  const selectedSong = quizState.availableSongs.splice(randomIndex, 1)[0];
+  
+  quizState.currentQuizSong = selectedSong;
+  quizState.currentQuestionIndex++;
+  quizState.totalQuestions++;
+  
+  console.log(`[Quiz] 問題${quizState.currentQuestionIndex}: ${selectedSong.title}`);
+  
+  // UIを更新
+  updateQuizUI();
+  
+  // 音楽を読み込み
+  loadQuizSong(selectedSong);
+  
+  // 解答用テキストボックスをクリアしてフォーカス
+  const answerInput = document.getElementById('answerText');
+  answerInput.value = '';
+  answerInput.focus();
+  
+  // 時間計測開始
+  quizState.questionStartTime = Date.now();
+}
+
+/**
+ * クイズUIを更新する
+ */
+function updateQuizUI() {
+  // 出題可能な総楽曲数は、使用済み + 未使用 + 現在出題中の1曲
+  const totalAvailable = quizState.usedSongs.length + quizState.availableSongs.length + 1;
+  document.getElementById('currentQuestion').textContent = 
+    `問題 ${quizState.currentQuestionIndex} / ${totalAvailable}`;
+}
+
+/**
+ * クイズ用楽曲を読み込み、自動再生する
+ */
+function loadQuizSong(song) {
+  // クイズが非アクティブの場合は何もしない
+  if (!quizState.isActive) {
+    console.log('[Quiz] クイズが非アクティブのため、楽曲読み込みを中止します');
+    return;
+  }
+  
+  // 既存のプレーヤーをクリーンアップ
+  cleanupQuizAudioPlayer();
+  
+  if (!song.filePath || !song.fileExists) {
+    console.error('[Quiz] 楽曲ファイルが存在しません:', song.filename);
+    return;
+  }
+  
+  try {
+    console.log(`[Quiz] 楽曲を読み込み中: ${song.filePath}`);
+    quizState.quizAudioPlayer = new Audio(song.filePath);
+    
+    // 音量をスライダーの値に合わせて設定
+    const volume = document.getElementById('quizVolumeSlider').value / 100;
+    quizState.quizAudioPlayer.volume = volume;
+    
+    // 読み込み完了時のイベントリスナー
+    const onLoadedMetadata = () => {
+      console.log('[Quiz] 楽曲の読み込み完了');
+      // 再度アクティブ状態をチェック
+      if (quizState.isActive && quizState.quizAudioPlayer) {
+        console.log('[Quiz] 自動再生を開始');
+        quizState.quizAudioPlayer.play().catch(e => {
+          console.error('[Quiz] 自動再生エラー:', e);
+          // クイズがアクティブな場合のみエラーメッセージを表示
+          if (quizState.isActive) {
+            alert(`楽曲の再生に失敗しました: ${e.message}`);
+          }
+        });
+      }
+    };
+    
+    // エラー時のイベントリスナー
+    const onError = (e) => {
+      console.error('[Quiz] 楽曲の読み込みエラー:', e);
+      // クイズがアクティブな場合のみエラーメッセージを表示
+      if (quizState.isActive) {
+        alert('楽曲の読み込みに失敗しました。');
+      }
+    };
+    
+    // イベントリスナーを保存（後で削除するため）
+    quizState.quizAudioPlayer._onLoadedMetadata = onLoadedMetadata;
+    quizState.quizAudioPlayer._onError = onError;
+    
+    quizState.quizAudioPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
+    quizState.quizAudioPlayer.addEventListener('error', onError);
+    
+    // 最終的にアクティブ状態を再チェックして読み込み開始
+    if (quizState.isActive) {
+      quizState.quizAudioPlayer.load();
+    } else {
+      console.log('[Quiz] 読み込み開始前にクイズが非アクティブになったため中止');
+      cleanupQuizAudioPlayer();
+    }
+  } catch (error) {
+    console.error('[Quiz] 楽曲の読み込み中にエラーが発生:', error);
+    // クイズがアクティブな場合のみエラーメッセージを表示
+    if (quizState.isActive) {
+      alert(`楽曲の読み込み中にエラーが発生しました: ${error.message}`);
+    }
+  }
+}
+
+/**
+ * クイズ用オーディオプレーヤーをクリーンアップする
+ */
+function cleanupQuizAudioPlayer() {
+  if (quizState.quizAudioPlayer) {
+    // 保存されたイベントリスナー関数を使って正しく削除
+    if (quizState.quizAudioPlayer._onLoadedMetadata) {
+      quizState.quizAudioPlayer.removeEventListener('loadedmetadata', quizState.quizAudioPlayer._onLoadedMetadata);
+    }
+    if (quizState.quizAudioPlayer._onError) {
+      quizState.quizAudioPlayer.removeEventListener('error', quizState.quizAudioPlayer._onError);
+    }
+    
+    quizState.quizAudioPlayer.pause();
+    quizState.quizAudioPlayer.src = '';
+    quizState.quizAudioPlayer = null;
+    console.log('[Quiz] オーディオプレーヤーをクリーンアップしました');
+  }
+}
+
 
 // クイズの回答を提出
 function submitAnswer() {
-  // TODO: クイズ機能の実装（フェーズ3）
-  alert('クイズ機能は開発中です（フェーズ3で実装予定）');
+  if (!quizState.isActive || !quizState.currentQuizSong) {
+    console.warn('[Quiz] クイズがアクティブでないか、現在の問題がありません');
+    return;
+  }
+  
+  const userAnswer = document.getElementById('answerText').value.trim();
+  if (!userAnswer) {
+    alert('解答を入力してください。');
+    return;
+  }
+  
+  // 時間計測終了
+  const responseTime = Date.now() - quizState.questionStartTime;
+  quizState.responseTimes.push(responseTime);
+  
+  console.log(`[Quiz] ユーザー回答: "${userAnswer}", 正解: "${quizState.currentQuizSong.title}", 回答時間: ${responseTime}ms`);
+  
+  // 完全一致モードでの判定
+  const isCorrect = checkExactMatch(userAnswer, quizState.currentQuizSong.title);
+  
+  if (isCorrect) {
+    quizState.correctAnswers++;
+    console.log('[Quiz] 正解!');
+  } else {
+    console.log('[Quiz] 不正解');
+  }
+  
+  // 結果を表示
+  showQuestionResult(isCorrect, userAnswer, responseTime);
+  
+  // 使用済み楽曲に追加
+  quizState.usedSongs.push(quizState.currentQuizSong);
+}
+
+/**
+ * 完全一致モードでの解答判定
+ */
+function checkExactMatch(userAnswer, correctTitle) {
+  // 空白と全角半角を正規化して比較
+  const normalizeString = (str) => {
+    return str
+      .trim()
+      .replace(/　/g, ' ') // 全角スペースを半角スペースに
+      .replace(/\s+/g, ' ') // 連続する空白を単一のスペースに
+      .toLowerCase();
+  };
+  
+  const normalizedAnswer = normalizeString(userAnswer);
+  const normalizedTitle = normalizeString(correctTitle);
+  
+  return normalizedAnswer === normalizedTitle;
+}
+
+/**
+ * 問題の結果を表示
+ */
+function showQuestionResult(isCorrect, userAnswer, responseTime) {
+  const resultContainer = document.getElementById('quizResult');
+  const resultStatus = document.getElementById('resultStatus');
+  const correctAnswer = document.getElementById('correctAnswer');
+  const songDetails = document.getElementById('songDetails');
+  
+  // 結果ステータスを表示
+  if (isCorrect) {
+    resultStatus.textContent = '正解！';
+    resultStatus.style.color = '#4caf50';
+  } else {
+    resultStatus.textContent = '不正解';
+    resultStatus.style.color = '#f44336';
+  }
+  
+  // 正解と回答時間を表示
+  const timeInSeconds = (responseTime / 1000).toFixed(1);
+  correctAnswer.innerHTML = `
+    <strong>正解:</strong> ${quizState.currentQuizSong.title}<br>
+    <strong>あなたの回答:</strong> ${userAnswer}<br>
+    <strong>回答時間:</strong> ${timeInSeconds}秒
+  `;
+  
+  // 楽曲詳細情報を表示
+  const song = quizState.currentQuizSong;
+  const details = [
+    { label: 'タイプ', value: song.type },
+    { label: 'シリーズ区分', value: song.generation },
+    { label: '作品名', value: song.game },
+    { label: '場面', value: song.stage },
+    { label: 'キャラクター', value: song.character }
+  ].filter(detail => detail.value && detail.value.trim() !== '');
+  
+  songDetails.innerHTML = details.map(detail => 
+    `<div><span style="font-weight: bold;">${detail.label}:</span> ${detail.value}</div>`
+  ).join('');
+  
+  // 結果を表示
+  resultContainer.classList.remove('hidden');
+  
+  // 次の問題ボタンを有効化
+  document.getElementById('nextQuestionBtn').style.display = 'inline-block';
+  
+  // 解答ボタンを無効化
+  document.getElementById('submitAnswerBtn').disabled = true;
+  document.getElementById('answerText').disabled = true;
 }
 
 // 次の問題へ進む
 function nextQuestion() {
-  // TODO: クイズ機能の実装（フェーズ3）
-  alert('クイズ機能は開発中です（フェーズ3で実装予定）');
+  if (!quizState.isActive) {
+    return;
+  }
+  
+  // 現在の楽曲を完全に停止・クリーンアップ
+  cleanupQuizAudioPlayer();
+  console.log('[Quiz] 次の問題に進むため、現在の楽曲を停止しました');
+  
+  // 結果表示を非表示
+  document.getElementById('quizResult').classList.add('hidden');
+  document.getElementById('nextQuestionBtn').style.display = 'none';
+  
+  // 解答エリアを再有効化
+  document.getElementById('submitAnswerBtn').disabled = false;
+  document.getElementById('answerText').disabled = false;
+  
+  // 次の問題を出題（自動再生される）
+  presentNextQuestion();
 }
 
-// クイズ楽曲の再生
-function playQuizSong() {
-  // TODO: クイズ機能の実装（フェーズ3）
-  alert('クイズ機能は開発中です（フェーズ3で実装予定）');
-}
-
-// クイズ楽曲の一時停止
-function pauseQuizSong() {
-  // TODO: クイズ機能の実装（フェーズ3）
-  alert('クイズ機能は開発中です（フェーズ3で実装予定）');
-}
-
-// クイズ楽曲の停止
-function stopQuizSong() {
-  // TODO: クイズ機能の実装（フェーズ3）
-  alert('クイズ機能は開発中です（フェーズ3で実装予定）');
-}
 
 // 設定画面でのディレクトリ選択
 async function selectMusicDirectorySettings() {
@@ -1208,8 +1527,8 @@ function updateQuizSongCounts() {
   document.getElementById('quizTotalSongs').textContent = `楽曲数: ${totalCount}曲`;
   document.getElementById('quizAvailableSongs').textContent = `| 再生可能: ${availableCount}曲`;
   
-  // 再生可能楽曲数に応じて「クイズを開始」ボタンの状態を制御
-  updateQuizStartButtonState(availableCount);
+  // 回答方式と再生可能楽曲数に応じて「クイズを開始」ボタンの状態を制御
+  updateQuizStartButtonForAnswerMode();
 }
 
 /**
@@ -1226,5 +1545,120 @@ function updateQuizStartButtonState(availableCount) {
       startQuizBtn.disabled = false;
       startQuizBtn.title = '';
     }
+  }
+}
+
+/**
+ * クイズを中止する
+ */
+function stopQuiz() {
+  if (!quizState.isActive) {
+    return;
+  }
+  
+  const confirmStop = confirm('クイズを中止しますか？\n現在までの結果が表示されます。');
+  if (!confirmStop) {
+    return;
+  }
+  
+  console.log('[Quiz] ユーザーによってクイズが中止されました');
+  endQuiz();
+}
+
+/**
+ * クイズを終了し、結果を表示する
+ */
+function endQuiz() {
+  console.log('[Quiz] クイズを終了します');
+  
+  // クイズ状態を非アクティブに（最初に設定してエラーメッセージを抑制）
+  quizState.isActive = false;
+  
+  // 音楽を完全に停止・クリーンアップ
+  cleanupQuizAudioPlayer();
+  
+  // 最終結果を表示
+  showFinalResults();
+  
+  // UIを初期状態に戻す
+  document.getElementById('quizContainer').classList.add('hidden');
+  document.getElementById('quizResult').classList.add('hidden');
+  document.getElementById('nextQuestionBtn').style.display = 'none';
+  document.getElementById('submitAnswerBtn').disabled = false;
+  document.getElementById('answerText').disabled = false;
+  document.getElementById('answerText').value = '';
+}
+
+/**
+ * 最終結果を表示する
+ */
+function showFinalResults() {
+  const totalQuestions = quizState.totalQuestions;
+  const correctAnswers = quizState.correctAnswers;
+  const responseTimes = quizState.responseTimes;
+  
+  if (totalQuestions === 0) {
+    alert('問題が出題されませんでした。');
+    return;
+  }
+  
+  // 正答率を計算
+  const accuracy = ((correctAnswers / totalQuestions) * 100).toFixed(1);
+  
+  // 平均回答時間を計算
+  const averageTime = responseTimes.length > 0 
+    ? (responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length / 1000).toFixed(1)
+    : '0.0';
+  
+  // 結果メッセージを作成
+  const resultMessage = `
+クイズ結果
+
+出題数: ${totalQuestions}問
+正答数: ${correctAnswers}問
+正答率: ${accuracy}%
+平均回答時間: ${averageTime}秒
+
+お疲れさまでした！
+  `.trim();
+  
+  console.log('[Quiz] 最終結果:', {
+    totalQuestions,
+    correctAnswers,
+    accuracy: `${accuracy}%`,
+    averageTime: `${averageTime}秒`
+  });
+  
+  alert(resultMessage);
+}
+
+/**
+ * 演習モード用の音量調節
+ */
+function adjustQuizVolume() {
+  const volume = document.getElementById('quizVolumeSlider').value / 100;
+  if (quizState.quizAudioPlayer) {
+    quizState.quizAudioPlayer.volume = volume;
+    console.log(`[Quiz] 音量を${volume * 100}%に変更しました`);
+  }
+}
+
+/**
+ * 回答方式に基づいてクイズ開始ボタンの状態を更新
+ */
+function updateQuizStartButtonForAnswerMode() {
+  const answerMode = document.getElementById('answerMode').value;
+  const startQuizBtn = document.getElementById('startQuizBtn');
+  
+  if (answerMode !== 'exact') {
+    // 完全一致以外の場合はボタンを無効化
+    startQuizBtn.disabled = true;
+    startQuizBtn.title = `${answerMode === 'fuzzy' ? '曖昧一致' : 'ボタン回答'}モードは現在未実装です。完全一致モードをご利用ください。`;
+    console.log(`[Quiz] ${answerMode}モードは未実装のため、クイズ開始ボタンを無効化しました`);
+  } else {
+    // 完全一致の場合は、再生可能楽曲数に基づいて判定
+    const filteredSongs = filterQuizSongsInternal();
+    const availableCount = filteredSongs.filter(song => isMusicDirSet && song.fileExists).length;
+    updateQuizStartButtonState(availableCount);
   }
 }

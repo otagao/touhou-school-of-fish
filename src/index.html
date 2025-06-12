@@ -157,20 +157,27 @@
             <label for="answerMode">回答方式:</label>
             <select id="answerMode">
               <option value="exact">完全一致</option>
-              <option value="fuzzy">曖昧一致</option>
-              <option value="button">ボタン回答</option>
+              <option value="fuzzy">曖昧一致（未実装）</option>
+              <option value="button">ボタン回答（未実装）</option>
             </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="quizVolumeSlider">音量:</label>
+            <input type="range" id="quizVolumeSlider" min="0" max="100" value="80">
           </div>
           
           <button id="startQuizBtn" class="primary-button">クイズを開始</button>
         </div>
         
         <div class="quiz-container hidden" id="quizContainer">
-          <div class="quiz-player">
-            <button id="quizPlayBtn" class="control-button">再生</button>
-            <button id="quizPauseBtn" class="control-button">一時停止</button>
-            <button id="quizStopBtn" class="control-button">停止</button>
+          <div class="quiz-info">
+            <h3 id="currentQuestion">問題 1 / 10</h3>
+            <div class="quiz-controls">
+              <button id="stopQuizBtn" class="control-button">出題中止</button>
+            </div>
           </div>
+          
           
           <div class="answer-input" id="textAnswerInput">
             <input type="text" id="answerText" placeholder="曲名を入力してください...">
@@ -218,7 +225,7 @@
     </div>
     
     <footer>
-      <p>東方スクールオブフィッシュ v0.2.1</p>
+      <p>東方スクールオブフィッシュ v0.3.0</p>
     </footer>
   </div>
 
