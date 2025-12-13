@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+  <title>東方スクールオブフィッシュ</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>東方スクールオブフィッシュ</h1>
+    </header>
+    
+    <div class="setup-panel" id="setupPanel">
+      <h2>初期設定</h2>
+      <div class="form-group">
+        <label for="musicDir">音楽ファイルが保存されているフォルダ</label>
+        <div class="input-group">
+          <input type="text" id="musicDirPath" readonly placeholder="音楽ファイルが保存されているフォルダを選択してください">
+          <button id="selectMusicDir">選択</button>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="csvFile">楽曲情報が記録されているCSVファイル</label>
+        <div class="input-group">
+          <input type="text" id="csvFilePath" readonly placeholder="楽曲情報が記録されているCSVファイルを選択してください">
+          <button id="selectCsvFile">選択</button>
+        </div>
+      </div>
+      
+      <button id="startApp" class="primary-button" disabled>アプリケーションを開始</button>
+    </div>
+    
+    <div class="main-panel hidden" id="mainPanel">
+      <div class="mode-selector">
+        <button id="listeningModeBtn" class="mode-button">聴取モード</button>
+        <button id="quizModeBtn" class="mode-button">演習モード</button>
+        <button id="settingsBtn" class="mode-button">設定</button>
+      </div>
+      
+      <div id="listeningModePanel" class="mode-panel">
+        <h2>聴取モード</h2>
+        <div class="song-list-container">
+          <div class="search-bar">
+            <input type="text" id="songSearch" placeholder="曲名もしくはキャラクター名で検索...">
+            <!-- <select id="songFilter">...</select>  このselect要素を削除 -->
+          </div>
+          
+          <!-- ★追加: フィルターコントロールコンテナ -->
+          <div class="filter-controls-wrapper">
+            <button id="toggleFilters" class="toggle-filters-btn">詳細絞り込み ▼</button>
+            <div id="filterControlsContainer" class="filter-controls-container hidden">
+              <div class="filter-group">
+                <h4>タイプ</h4>
+                <div id="typeFilters" class="checkbox-group">
+                  <!-- タイプ (初出/アレンジ/再録など) のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>シリーズ区分</h4>
+                <div id="generationFilters" class="checkbox-group">
+                  <!-- シリーズ区分 (旧作/現行/西方等/黄昏など) のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>作品名</h4>
+                <div id="gameFilters" class="checkbox-group">
+                  <!-- 作品名のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>場面</h4>
+                <div id="stageFilters" class="radio-group">
+                  <!-- 場面のラジオボタンがここに動的に追加されます -->
+                </div>
+              </div>
+              <!-- 必要に応じて他のフィルターグループを追加 -->
+            </div>
+          </div>
+          
+          <!-- 楽曲リストヘッダー（スクロール範囲外に配置） -->
+          <div class="song-list-header-fixed" id="songListHeader" style="display: none;">
+            <div class="song-title-header">楽曲名</div>
+            <div class="song-character-header">キャラクター</div>
+          </div>
+          
+          <div class="song-list" id="songList">
+            <!-- 曲リストがここに動的に追加されます -->
+          </div>
+        </div>
+        
+        <div class="player-container">
+          <div class="now-playing">
+            <h3 id="nowPlayingTitle">選択されていません</h3>
+            <p id="nowPlayingDetails"></p>
+          </div>
+          <div class="player-controls">
+            <button id="playBtn" class="control-button" disabled>再生</button>
+            <button id="pauseBtn" class="control-button" disabled>一時停止</button>
+            <button id="stopBtn" class="control-button" disabled>停止</button>
+            <div class="volume-control">
+              <label for="volumeSlider">音量:</label>
+              <input type="range" id="volumeSlider" min="0" max="100" value="80">
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="quizModePanel" class="mode-panel hidden">
+        <h2>演習モード</h2>
+        <div class="quiz-settings">
+          <h3>出題設定</h3>
+          
+          <!-- ★追加: 絞り込み条件表示と詳細絞り込み -->
+          <div class="quiz-filter-summary">
+            <div class="song-count-display">
+              <span id="quizTotalSongs">楽曲数: 0曲</span>
+              <span id="quizAvailableSongs">| 再生可能: 0曲</span>
+            </div>
+          </div>
+          
+          <!-- ★追加: 出題絞り込みエリア -->
+          <div class="quiz-filter-section">
+            <h4>出題絞り込み</h4>
+            <div id="quizFilterControlsContainer" class="filter-controls-container">
+              <div class="filter-group">
+                <h4>タイプ</h4>
+                <div id="quizTypeFilters" class="checkbox-group">
+                  <!-- タイプ (初出/アレンジ/再録など) のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>シリーズ区分</h4>
+                <div id="quizGenerationFilters" class="checkbox-group">
+                  <!-- シリーズ区分 (旧作/現行/西方等/黄昏など) のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>作品名</h4>
+                <div id="quizGameFilters" class="checkbox-group">
+                  <!-- 作品名のチェックボックスがここに動的に追加されます -->
+                </div>
+              </div>
+              <div class="filter-group">
+                <h4>場面</h4>
+                <div id="quizStageFilters" class="radio-group">
+                  <!-- 場面のラジオボタンがここに動的に追加されます -->
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="answerMode">回答方式:</label>
+            <select id="answerMode">
+              <option value="exact">完全一致</option>
+              <option value="fuzzy">曖昧一致（未実装）</option>
+              <option value="button">ボタン回答（未実装）</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="quizVolumeSlider">音量:</label>
+            <input type="range" id="quizVolumeSlider" min="0" max="100" value="80">
+          </div>
+          
+          <button id="startQuizBtn" class="primary-button">クイズを開始</button>
+        </div>
+        
+        <div class="quiz-container hidden" id="quizContainer">
+          <div class="quiz-info">
+            <h3 id="currentQuestion">問題 1 / 10</h3>
+            <div class="quiz-controls">
+              <button id="stopQuizBtn" class="control-button">出題中止</button>
+            </div>
+          </div>
+          
+          
+          <div class="answer-input" id="textAnswerInput">
+            <input type="text" id="answerText" placeholder="曲名を入力してください...">
+            <button id="submitAnswerBtn">回答</button>
+          </div>
+          
+          <div class="button-answer hidden" id="buttonAnswerInput">
+            <!-- ボタン回答UIはJSで動的に生成 -->
+          </div>
+          
+          <div class="quiz-result hidden" id="quizResult">
+            <h3 id="resultStatus">正解！</h3>
+            <p id="correctAnswer">正解: </p>
+            <div class="song-details" id="songDetails">
+              <!-- 曲の詳細情報 -->
+            </div>
+            <button id="nextQuestionBtn" class="primary-button">次の問題</button>
+          </div>
+        </div>
+      </div>
+      
+      <div id="settingsPanel" class="mode-panel hidden">
+        <h2>設定</h2>
+        <!-- 設定項目 -->
+        <div class="form-group">
+          <label for="musicDirPathSettings">音楽ファイルディレクトリ</label>
+          <div class="input-group">
+            <input type="text" id="musicDirPathSettings" readonly>
+            <button id="selectMusicDirSettings">変更</button>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="csvFilePathSettings">楽曲情報CSVファイル</label>
+          <div class="input-group">
+            <input type="text" id="csvFilePathSettings" readonly>
+            <button id="selectCsvFileSettings">変更</button>
+          </div>
+        </div>
+        
+        <!-- その他の設定項目 -->
+        
+        <button id="applySettingsBtn" class="primary-button">設定を保存</button>
+      </div>
+    </div>
+    
+    <footer>
+      <p>東方スクールオブフィッシュ v0.3.0</p>
+    </footer>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

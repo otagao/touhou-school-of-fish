@@ -1,0 +1,435 @@
+/* 基本スタイル */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f0f0f0;
+    color: #333;
+    line-height: 1.6;
+  }
+  
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  
+  header {
+    background-color: #6d4c41;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 20px;
+  }
+  
+  footer {
+    background-color: #6d4c41;
+    color: white;
+    padding: 10px;
+    text-align: center;
+    border-radius: 0 0 8px 8px;
+    margin-top: auto;
+  }
+  
+  h1, h2, h3 {
+    margin-bottom: 15px;
+  }
+  
+  /* フォーム要素 */
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  
+  .input-group {
+    display: flex;
+  }
+  
+  input[type="text"] {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+  }
+  
+  input[type="text"]:read-only {
+    background-color: #f5f5f5;
+  }
+  
+  button {
+    padding: 8px 15px;
+    background-color: #8d6e63;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  button:hover {
+    background-color: #6d4c41;
+  }
+  
+  button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+  }
+  
+  .primary-button {
+    background-color: #4caf50;
+    padding: 10px 20px;
+    font-size: 16px;
+  }
+  
+  .primary-button:hover {
+    background-color: #388e3c;
+  }
+  
+  .primary-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+  }
+  
+  .primary-button:disabled:hover {
+    background-color: #cccccc;
+  }
+  
+  /* パネル */
+  .setup-panel, .mode-panel {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+  }
+  
+  /* モードセレクター */
+  .mode-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .mode-button {
+    flex: 1;
+    padding: 10px;
+    font-size: 16px;
+  }
+  
+  /* 聴取モード */
+  .song-list-container {
+    margin-bottom: 20px;
+  }
+  
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .search-bar input {
+    flex: 2;
+  }
+  
+  .search-bar select {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  
+  .song-list {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-top: none; /* 上のボーダーを削除（ヘッダーと接続） */
+    padding: 0; /* パディングを削除してヘッダーと揃える */
+    border-radius: 0 0 4px 4px; /* 下端のみ角丸 */
+    background-color: #fff; /* 背景色を明示 */
+  }
+  
+  .song-item {
+    display: flex; /* 2列レイアウトのためにflexを使用 */
+    padding: 8px 12px; /* ヘッダーと同じパディング */
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s ease; /* ホバー効果をスムーズに */
+    align-items: center; /* 縦方向の中央揃え */
+  }
+
+  .song-title {
+    flex: 2; /* タイトル列を広めに設定 */
+    white-space: nowrap; /* 長い曲名が折り返さないように */
+    overflow: hidden;
+    text-overflow: ellipsis; /* はみ出したテキストを...で表示 */
+    margin-right: 10px; /* キャラクター列との間隔 */
+  }
+
+  .song-character {
+    flex: 1; /* キャラクター列をタイトルより狭く設定 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #666; /* 少し薄い色で表示 */
+    font-size: 0.9em; /* 少し小さく表示 */
+    text-align: right; /* 右寄せ */
+  }
+
+  /* 楽曲リストの固定ヘッダー */
+  .song-list-header-fixed {
+    display: flex;
+    padding: 8px 12px;
+    background-color: #f5f5f5; /* ヘッダー背景色 */
+    border: 1px solid #ddd; /* 全体のボーダー */
+    border-bottom: 2px solid #ddd; /* 太い下線 */
+    border-radius: 4px 4px 0 0; /* 上端のみ角丸 */
+    font-weight: bold;
+    color: #333;
+  }
+
+  .song-title-header {
+    flex: 2;
+    margin-right: 10px;
+  }
+
+  .song-character-header {
+    flex: 1;
+    text-align: right;
+  }
+  
+  .song-item:last-child {
+    border-bottom: none; /* 最後のアイテムの下線を消す */
+  }
+  
+  .song-item:hover {
+    background-color: #f5f5f5;
+  }
+  
+  .song-item.active {
+    background-color: #e1f5fe; /* 青系の選択色 */
+    font-weight: bold; /* 選択されたアイテムを太字に */
+  }
+  
+  /* ★★★ ファイルが見つからないアイテムのスタイルを追加 ★★★ */
+  .song-item.file-missing {
+    background-color: #ffebee; /* 薄い赤色 */
+    color: #c62828; /* 少し濃い赤色の文字 */
+    cursor: not-allowed; /* カーソルを変更 */
+  }
+  
+  /* ファイルが見つからないアイテムが選択された場合の色も定義（任意） */
+  .song-item.file-missing.active {
+    background-color: #ffcdd2; /* 少し濃い赤系の選択色 */
+    font-weight: bold;
+  }
+  
+  /* ファイルが見つからないアイテムのホバー効果（任意） */
+  .song-item.file-missing:hover {
+    background-color: #ffcdd2; /* ホバー時も少し色を変える */
+  }
+  
+  .player-container {
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 4px;
+  }
+  
+  .now-playing {
+    margin-bottom: 15px;
+  }
+
+  /* 楽曲詳細情報の箇条書きスタイル */
+  .song-detail-item {
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    line-height: 1.4;
+  }
+
+  .detail-label {
+    font-weight: bold;
+    color: #555;
+    min-width: 100px;
+    display: inline-block;
+  }
+
+  .detail-value {
+    color: #333;
+  }
+  
+  .player-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .control-button {
+    padding: 6px 12px;
+  }
+  
+  .volume-control {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+  }
+  
+  /* 演習モード */
+  .quiz-settings {
+    margin-bottom: 20px;
+  }
+  
+  .quiz-container {
+    border: 1px solid #ddd;
+    padding: 20px;
+    border-radius: 4px;
+  }
+  
+  .quiz-player {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .answer-input {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .answer-input input {
+    flex: 1;
+  }
+  
+  .button-answer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .quiz-result {
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+  }
+  
+  /* ユーティリティクラス */
+  .hidden {
+    display: none !important;
+  }
+
+
+  /* 折りたたみボタン */
+  .filter-controls-wrapper {
+    margin-bottom: 15px;
+  }
+
+  .toggle-filters-btn {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    text-align: left;
+    transition: background-color 0.2s;
+  }
+
+  .toggle-filters-btn:hover {
+    background-color: #e9ecef;
+  }
+
+  /* フィルタコントロール */
+  .filter-controls-container {
+    display: flex;
+    flex-wrap: wrap; /* 画面幅に応じて折り返し */
+    gap: 20px; /* グループ間のスペース */
+    padding: 10px 0;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee; /* 区切り線 */
+    border-top: 1px solid #eee; /* 上の区切り線も追加 */
+    margin-top: 5px;
+  }
+
+  .filter-group {
+    min-width: 180px; /* 各フィルターグループの最小幅 */
+    margin-bottom: 10px;
+  }
+
+  .filter-group h4 {
+    margin-bottom: 8px;
+    font-size: 0.95em; /* 少し小さく */
+    color: #444;
+    font-weight: bold;
+  }
+
+  .checkbox-group {
+    max-height: 100px; /* 高さが長くなりすぎないようにスクロール可能に */
+    overflow-y: auto;
+    padding-right: 8px; /* スクロールバーのためのスペース */
+    font-size: 0.9em;
+  }
+
+  .checkbox-label {
+    display: block; /* 各チェックボックスを改行表示 */
+    margin-bottom: 5px;
+    font-weight: normal;
+    cursor: pointer;
+    white-space: nowrap; /* 長いラベルが折り返さないように */
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  .no-filter-options { /* 該当オプションがない場合の表示 */
+    color: #888;
+    font-style: italic;
+    font-size: 0.9em;
+    padding: 5px 0;
+  }
+
+  /* 検索バーのマージン調整 (任意) */
+  .search-bar {
+      display: flex;
+      gap: 10px;
+      /* margin-bottom: 10px; フィルターコントロールとの間にマージンがあるので調整 */
+  }
+
+  /* ラジオボタン用のスタイル */
+  .radio-group {
+    max-height: 100px; /* 高さが長くなりすぎないようにスクロール可能に */
+    overflow-y: auto;
+    padding-right: 8px; /* スクロールバーのためのスペース */
+    font-size: 0.9em;
+  }
+
+  .radio-label {
+    display: block; /* 各ラジオボタンを改行表示 */
+    margin-bottom: 5px;
+    font-weight: normal; /* 太字を解除 */
+    cursor: pointer;
+    white-space: nowrap; /* 長いラベルが折り返さないように */
+  }
+
+  .radio-label input[type="radio"] {
+    margin-right: 6px;
+    vertical-align: middle;
+  }
