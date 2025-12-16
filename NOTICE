@@ -1,0 +1,25 @@
+東方スクールオブフィッシュ
+Copyright (c) 2025 otagao
+
+【重要な注意事項】
+このソフトウェアは東方Projectの二次創作作品です。
+「東方Project」は上海アリス幻樂団の作品です。
+
+ユーザーが本アプリケーションで使用する楽曲ファイルおよびCSVファイルの
+著作権は、それぞれの権利者に帰属します。
+
+---
+
+このソフトウェアは、以下のオープンソースソフトウェアを使用しています：
+
+- Electron (MIT License)
+  Copyright (c) Electron contributors
+  Copyright (c) 2013-2020 GitHub Inc.
+
+- Howler.js (MIT License)
+  Copyright (c) 2013-2021 James Simpson and GoldFire Studios, Inc.
+
+- PapaParse (MIT License)
+  Copyright (c) 2015 Matthew Holt
+
+詳細なライセンステキストは THIRD-PARTY-LICENSES.txt をご参照ください。

@@ -1,6 +1,6 @@
 {
   "name": "touhou-school-of-fish",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "東方Project楽曲のイントロクイズに向けた学習・演習用アプリ",
   "main": "main.js",
   "scripts": {
@@ -8,13 +8,17 @@
     "build": "electron-builder --dir",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
+    "license-check": "license-checker --production --failOn 'GPL;AGPL;LGPL'",
+    "generate-licenses": "generate-license-file --input package.json --output THIRD-PARTY-LICENSES.txt --overwrite",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "otagao",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^22.0.0",
-    "electron-builder": "^23.6.0"
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12",
+    "generate-license-file": "^3.0.0",
+    "license-checker": "^25.0.1"
   },
   "dependencies": {
     "howler": "^2.2.3",
@@ -26,19 +30,69 @@
     "directories": {
       "output": "dist"
     },
-    "mac": {
-      "category": "public.app-category.music",
-      "target": "dmg"
-    },
-    "win": {
-      "target": "nsis"
-    },
+    "extraResources": [
+      "LICENSE",
+      "THIRD-PARTY-LICENSES.txt",
+      "NOTICE"
+    ],
     "files": [
       "main.js",
       "preload.js",
       "src/**/*",
       "node_modules/**/*",
       "package.json"
-    ]
+    ],
+    "mac": {
+      "category": "public.app-category.music",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "AudioVideo"
+    }
   }
 }

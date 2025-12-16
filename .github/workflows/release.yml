@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  # ライセンスチェックとライセンス文書の生成
+  license-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Node.jsセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 依存関係インストール
+        run: npm ci
+
+      - name: ライセンスチェック
+        run: npm run license-check
+
+      - name: サードパーティライセンス生成
+        run: npm run generate-licenses
+
+      - name: ライセンスファイルアップロード
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-files
+          path: |
+            THIRD-PARTY-LICENSES.txt
+            NOTICE
+
+  # マルチプラットフォームビルド
+  build:
+    needs: license-check
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Node.jsセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: ライセンスファイルダウンロード
+        uses: actions/download-artifact@v4
+        with:
+          name: license-files
+
+      - name: 依存関係インストール
+        run: npm ci
+
+      - name: バージョン整合性チェック
+        shell: bash
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          echo "タグバージョン: $TAG_VERSION"
+          echo "package.jsonバージョン: $PACKAGE_VERSION"
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "エラー: タグバージョン($TAG_VERSION)とpackage.jsonのバージョン($PACKAGE_VERSION)が一致しません"
+            exit 1
+          fi
+
+      - name: Electronビルド
+        uses: samuelmeuli/action-electron-builder@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          release: false
+
+      - name: ビルド成果物アップロード
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: dist/*
+
+  # GitHubリリース作成
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: 全ビルド成果物ダウンロード
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: 成果物の確認
+        run: |
+          echo "アーティファクトの内容:"
+          find artifacts -type f
+
+      - name: GitHubリリース作成
+        uses: ncipollo/release-action@v1
+        with:
+          generateReleaseNotes: true
+          artifacts: |
+            artifacts/build-macos-latest/dist/*.dmg
+            artifacts/build-macos-latest/dist/*.zip
+            artifacts/build-windows-latest/dist/*.exe
+            artifacts/build-windows-latest/dist/*.zip
+            artifacts/build-ubuntu-latest/dist/*.AppImage
+            artifacts/build-ubuntu-latest/dist/*.zip
+            artifacts/license-files/THIRD-PARTY-LICENSES.txt
+            artifacts/license-files/NOTICE
+          token: ${{ secrets.GITHUB_TOKEN }}
