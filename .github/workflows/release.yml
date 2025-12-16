@@ -115,12 +115,12 @@ jobs:
         with:
           generateReleaseNotes: true
           artifacts: |
-            artifacts/build-macos-latest/dist/*.dmg
-            artifacts/build-macos-latest/dist/*.zip
-            artifacts/build-windows-latest/dist/*.exe
-            artifacts/build-windows-latest/dist/*.zip
-            artifacts/build-ubuntu-latest/dist/*.AppImage
-            artifacts/build-ubuntu-latest/dist/*.zip
+            artifacts/build-macos-latest/*.dmg
+            artifacts/build-macos-latest/*.zip
+            artifacts/build-windows-latest/*.exe
+            artifacts/build-windows-latest/*.zip
+            artifacts/build-ubuntu-latest/*.AppImage
+            artifacts/build-ubuntu-latest/*.zip
             artifacts/license-files/THIRD-PARTY-LICENSES.txt
             artifacts/license-files/NOTICE
           token: ${{ secrets.GITHUB_TOKEN }}
