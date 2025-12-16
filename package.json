@@ -26,7 +26,7 @@
   },
   "build": {
     "appId": "com.otagao.touhouschooloffish",
-    "productName": "東方Project楽曲のイントロクイズに向けた学習・演習用アプリ",
+    "productName": "Touhou School of Fish",
     "directories": {
       "output": "dist"
     },
