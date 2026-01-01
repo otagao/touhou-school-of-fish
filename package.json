@@ -26,7 +26,7 @@
   },
   "build": {
     "appId": "com.otagao.touhouschooloffish",
-    "productName": "東方スクールオブフィッシュ",
+    "productName": "Touhou School of Fish",
     "directories": {
       "output": "dist"
     },
