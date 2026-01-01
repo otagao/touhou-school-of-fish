@@ -1,0 +1,29 @@
+changelog:
+  categories:
+    - title: '✨ 新機能'
+      labels:
+        - 'enhancement'
+        - 'feature'
+    - title: '🐛 バグ修正'
+      labels:
+        - 'bug'
+        - 'bugfix'
+    - title: '📝 ドキュメント'
+      labels:
+        - 'documentation'
+        - 'docs'
+    - title: '🔧 メンテナンス'
+      labels:
+        - 'maintenance'
+        - 'chore'
+        - 'dependencies'
+    - title: '⚡ パフォーマンス改善'
+      labels:
+        - 'performance'
+    - title: '🔄 その他の変更'
+      labels:
+        - '*'
+  exclude:
+    labels:
+      - 'skip-changelog'
+      - 'ignore'
