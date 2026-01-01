@@ -40,8 +40,19 @@
       "preload.js",
       "src/**/*",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      "!node_modules/**/test/**",
+      "!node_modules/**/*.md",
+      "!node_modules/**/LICENSE*",
+      "!node_modules/**/.npmignore"
     ],
+    "asarUnpack": [],
+    "fileAssociations": [],
+    "electronLanguages": [
+      "ja",
+      "en-US"
+    ],
+    "afterPack": "./build-cleanup.js",
     "mac": {
       "category": "public.app-category.music",
       "target": [
@@ -64,18 +75,15 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
           "target": "zip",
           "arch": [
             "x64"
           ]
         }
-      ]
+      ],
+      "forceCodeSigning": false,
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
     },
     "linux": {
       "target": [
