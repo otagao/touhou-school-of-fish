@@ -4,3 +4,4 @@ build/
 .DS_Store
 repomix-output.xml
 CLAUDE.md
+musicdata.csv
