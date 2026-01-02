@@ -2,12 +2,15 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // レンダラープロセスに公開するAPIを定義
 contextBridge.exposeInMainWorld('electronAPI', {
+  // プラットフォーム情報を取得
+  platform: process.platform,
+
   // ディレクトリ選択ダイアログを開く
   openDirectoryDialog: () => ipcRenderer.invoke('open-directory-dialog'),
-  
+
   // ファイル選択ダイアログを開く
   openFileDialog: (options) => ipcRenderer.invoke('open-file-dialog', options),
-  
+
   // ディレクトリ内のファイル一覧を取得
   getFilesInDirectory: async (directoryPath, extensions) => {
     try {
@@ -17,7 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       throw new Error(`ディレクトリからファイル一覧を取得できませんでした: ${error.message}`);
     }
   },
-  
+
   // ファイルの内容を読み込む
   readFile: async (filePath) => {
     try {

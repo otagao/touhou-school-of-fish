@@ -244,19 +244,17 @@ function renderFilterControls() {
   gameContainer.innerHTML = '';
   stageContainer.innerHTML = '';
 
-  const predefinedTypes = ['初出', 'アレンジ', '再録'];
-  const predefinedGenerations = ['旧作', '現行', '西方等', '黄昏'];
-  // 作品名とステージ・場面はデータからのみ取得（事前定義なし）
+  // タイプ、シリーズ区分、作品名、ステージ・場面は全てデータからのみ取得（事前定義なし）
 
-  const types = getUniqueValuesForFilter('type', predefinedTypes);
-  const generations = getUniqueValuesForFilter('generation', predefinedGenerations);
+  const types = getUniqueValuesForFilter('type');
+  const generations = getUniqueValuesForFilter('generation');
   const games = getUniqueValuesForFilter('game');
   const stages = getUniqueValuesForFilter('stage');
 
   createCheckboxesForGroup(types, typeContainer, 'typeFilter');
   createCheckboxesForGroup(generations, generationContainer, 'generationFilter');
   createCheckboxesForGroup(games, gameContainer, 'gameFilter');
-  createRadioButtonsForGroup(stages, stageContainer, 'stageFilter');
+  createCheckboxesForGroup(stages, stageContainer, 'stageFilter');
 }
 
 /**
@@ -438,7 +436,12 @@ function parseSongData(csvContent) {
       const song = {};
       
       // CSVフォーマット: ファイル名,曲名,旧作or現行,初出orアレンジ,登場作品,担当キャラクター
-      song.filename = values[0]?.trim() || '';
+      let filename = values[0]?.trim() || '';
+      // Windows環境ではスラッシュをバックスラッシュに変換
+      if (window.electronAPI && window.electronAPI.platform === 'win32') {
+        filename = filename.replace(/\//g, '\\');
+      }
+      song.filename = filename;
       song.title = values[1]?.trim() || '';
       song.generation = values[2]?.trim() || '';
       song.type = values[3]?.trim() || '';
@@ -472,6 +475,23 @@ function parseSongData(csvContent) {
   }
 }
 
+/**
+ * ファイルパスから拡張子のみを除去（ディレクトリ構造は保持）
+ * @param {string} filePath ファイルパス
+ * @returns {string} 拡張子を除いたファイルパス
+ */
+function removeExtension(filePath) {
+  if (!filePath) return '';
+  const lastDotIndex = filePath.lastIndexOf('.');
+  const lastSepIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+
+  // ドットがパス区切り文字より後にある場合のみ拡張子として扱う
+  if (lastDotIndex > lastSepIndex && lastDotIndex > 0) {
+    return filePath.slice(0, lastDotIndex);
+  }
+  return filePath;
+}
+
 // 楽曲データとファイルのマッチング
 function matchSongsWithFiles(audioFiles) {
   try {
@@ -480,22 +500,29 @@ function matchSongsWithFiles(audioFiles) {
     console.log(`[renderer.js] 検出された音声ファイル数: ${audioFiles.length}`);
 
     // 1. 検出された音声ファイルのマップを作成
-    //    キー: 拡張子を除いたファイル名 (小文字)
+    //    キー: 音楽ディレクトリからの相対パス（拡張子なし、小文字）
     //    バリュー: ファイルのフルパス
-    //    重複するベース名があった場合、最初に見つかったものを優先する
     const audioFileMap = new Map();
     for (const fullPath of audioFiles) {
-        const baseNameLower = getBaseName(fullPath).toLowerCase(); // 拡張子なしファイル名 (小文字)
-        if (baseNameLower && !audioFileMap.has(baseNameLower)) { // ベース名があり、まだマップにない場合
-            audioFileMap.set(baseNameLower, fullPath); // マップに追加
+        // 音楽ディレクトリからの相対パスを取得
+        let relativePath = fullPath;
+        if (musicDirectory && fullPath.toLowerCase().startsWith(musicDirectory.toLowerCase())) {
+            relativePath = fullPath.slice(musicDirectory.length);
+            // 先頭のパス区切り文字を削除
+            if (relativePath.startsWith('\\') || relativePath.startsWith('/')) {
+                relativePath = relativePath.slice(1);
+            }
         }
-        // else {
-        //   // 重複した場合のログ（必要に応じて）
-        //   console.warn(`[renderer.js] 重複ベース名検出: ${baseNameLower}. 最初に検出された ${audioFileMap.get(baseNameLower)} を使用します。`);
-        // }
+
+        // 拡張子を除去して小文字に変換
+        const relativePathNoExt = removeExtension(relativePath).toLowerCase();
+
+        if (relativePathNoExt && !audioFileMap.has(relativePathNoExt)) {
+            audioFileMap.set(relativePathNoExt, fullPath);
+        }
     }
 
-    console.log(`[renderer.js] 音声ファイルマップ作成完了。ユニークなベース名数: ${audioFileMap.size}`);
+    console.log(`[renderer.js] 音声ファイルマップ作成完了。ユニークなパス数: ${audioFileMap.size}`);
     // マップ内容のサンプルログ（デバッグ用）
     let logCount = 0;
     for (const [name, path] of audioFileMap.entries()) {
@@ -510,18 +537,18 @@ function matchSongsWithFiles(audioFiles) {
     let noMatchCount = 0;
 
     songData.forEach((song, index) => {
-      // CSVから読み込んだファイル名から拡張子を除去し、小文字に変換
-      const csvBaseNameLower = getBaseName(song.filename).toLowerCase();
+      // CSVから読み込んだファイル名は拡張子なしを前提とし、小文字に変換
+      const csvPathLower = song.filename.toLowerCase();
 
       // デバッグログ（最初の数件と最後の数件）
       const logDetails = index < 5 || index >= songData.length - 5;
       if (logDetails) {
-        console.log(`[renderer.js] マッチング試行 ${index + 1}/${songData.length}: CSV Filename="${song.filename}", BaseName="${csvBaseNameLower}"`);
+        console.log(`[renderer.js] マッチング試行 ${index + 1}/${songData.length}: CSV Filename="${song.filename}", PathLower="${csvPathLower}"`);
       }
 
-      // マップにCSVのベース名（小文字）が存在するか確認
-      if (csvBaseNameLower && audioFileMap.has(csvBaseNameLower)) {
-        song.filePath = audioFileMap.get(csvBaseNameLower); // マップからフルパスを取得
+      // マップにCSVのパス（小文字）が存在するか確認
+      if (csvPathLower && audioFileMap.has(csvPathLower)) {
+        song.filePath = audioFileMap.get(csvPathLower); // マップからフルパスを取得
         song.fileExists = true; // ファイルが存在することを示すフラグ
         matchCount++;
 
@@ -533,10 +560,10 @@ function matchSongsWithFiles(audioFiles) {
         song.fileExists = false; // ファイルが存在しないフラグ
         noMatchCount++;
 
-        if (logDetails && csvBaseNameLower) {
-            console.log(`  -> マッチ失敗: ベース名 "${csvBaseNameLower}" のファイルが見つかりません`);
-        } else if (logDetails && !csvBaseNameLower) {
-            console.log(`  -> マッチ失敗: CSVのファイル名からベース名を取得できませんでした`);
+        if (logDetails && csvPathLower) {
+            console.log(`  -> マッチ失敗: パス "${csvPathLower}" のファイルが見つかりません`);
+        } else if (logDetails && !csvPathLower) {
+            console.log(`  -> マッチ失敗: CSVのファイル名からパスを取得できませんでした`);
         }
       }
     });
@@ -832,11 +859,11 @@ function filterSongsInternal() {
   const searchTermInput = document.getElementById('songSearch').value;
   const keywords = searchTermInput.toLowerCase().split(' ').filter(k => k.trim() !== '');
 
-  // チェックボックスとラジオボタンから選択された値を取得
+  // チェックボックスから選択された値を取得
   const selectedTypes = getSelectedCheckboxValues('typeFilter');
   const selectedGenerations = getSelectedCheckboxValues('generationFilter');
   const selectedGames = getSelectedCheckboxValues('gameFilter');
-  const selectedStage = getSelectedRadioValue('stageFilter');
+  const selectedStages = getSelectedCheckboxValues('stageFilter');
 
   return songData.filter(song => {
     // 1. テキスト検索 (AND検索) - titleとcharacterのみに限定
@@ -869,8 +896,8 @@ function filterSongsInternal() {
       return false;
     }
 
-    // 5. ステージ・場面フィルター（ラジオボタン）
-    if (selectedStage && selectedStage !== song.stage) {
+    // 5. ステージ・場面フィルター（チェックボックス）
+    if (selectedStages.length > 0 && !selectedStages.includes(song.stage)) {
       return false;
     }
 
@@ -1328,19 +1355,17 @@ function renderQuizFilterControls() {
   gameContainer.innerHTML = '';
   stageContainer.innerHTML = '';
 
-  const predefinedTypes = ['初出', 'アレンジ', '再録'];
-  const predefinedGenerations = ['旧作', '現行', '西方等', '黄昏'];
-  // 作品名とステージ・場面はデータからのみ取得（事前定義なし）
+  // タイプ、シリーズ区分、作品名、ステージ・場面は全てデータからのみ取得（事前定義なし）
 
-  const types = getUniqueValuesForFilter('type', predefinedTypes);
-  const generations = getUniqueValuesForFilter('generation', predefinedGenerations);
+  const types = getUniqueValuesForFilter('type');
+  const generations = getUniqueValuesForFilter('generation');
   const games = getUniqueValuesForFilter('game');
   const stages = getUniqueValuesForFilter('stage');
 
   createCheckboxesForQuizGroup(types, typeContainer, 'quizTypeFilter');
   createCheckboxesForQuizGroup(generations, generationContainer, 'quizGenerationFilter');
   createCheckboxesForQuizGroup(games, gameContainer, 'quizGameFilter');
-  createRadioButtonsForQuizGroup(stages, stageContainer, 'quizStageFilter');
+  createCheckboxesForQuizGroup(stages, stageContainer, 'quizStageFilter');
 }
 
 /**
@@ -1485,11 +1510,11 @@ function getSelectedQuizRadioValue(groupName) {
  * @returns {Array} フィルタリングされた楽曲データの配列
  */
 function filterQuizSongsInternal() {
-  // チェックボックスとラジオボタンから選択された値を取得
+  // チェックボックスから選択された値を取得
   const selectedTypes = getSelectedQuizCheckboxValues('quizTypeFilter');
   const selectedGenerations = getSelectedQuizCheckboxValues('quizGenerationFilter');
   const selectedGames = getSelectedQuizCheckboxValues('quizGameFilter');
-  const selectedStage = getSelectedQuizRadioValue('quizStageFilter');
+  const selectedStages = getSelectedQuizCheckboxValues('quizStageFilter');
 
   return songData.filter(song => {
     // 1. タイプフィルター (カテゴリ内でOR、未選択ならそのカテゴリは無視)
@@ -1507,8 +1532,8 @@ function filterQuizSongsInternal() {
       return false;
     }
 
-    // 4. ステージ・場面フィルター（ラジオボタン）
-    if (selectedStage && selectedStage !== song.stage) {
+    // 4. ステージ・場面フィルター（チェックボックス）
+    if (selectedStages.length > 0 && !selectedStages.includes(song.stage)) {
       return false;
     }
 
