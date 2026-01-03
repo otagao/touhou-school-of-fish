@@ -99,6 +99,8 @@ jobs:
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 全履歴を取得してタグ間の比較を可能にする
 
       - name: 全ビルド成果物ダウンロード
         uses: actions/download-artifact@v4
@@ -110,14 +112,161 @@ jobs:
           echo "アーティファクトの内容:"
           find artifacts -type f
 
+      - name: リリースノート生成
+        id: release_notes
+        run: |
+          # 現在のタグを取得
+          CURRENT_TAG=${GITHUB_REF#refs/tags/}
+
+          # 前のタグを取得
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -A1 "^${CURRENT_TAG}$" | tail -n1)
+
+          # 前のタグが存在しない場合は全履歴から生成
+          if [ -z "$PREVIOUS_TAG" ] || [ "$PREVIOUS_TAG" = "$CURRENT_TAG" ]; then
+            PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+
+          echo "前バージョン: $PREVIOUS_TAG"
+          echo "現バージョン: $CURRENT_TAG"
+
+          # リリースノートを生成
+          {
+            echo "## 📦 配布ファイル"
+            echo ""
+            echo "- **Windows**: \`Touhou.School.of.Fish-*.zip\` (ZIP形式)"
+            echo "- **macOS**: \`Touhou.School.of.Fish-*.zip\` (ARM64/x64ユニバーサルバイナリ)"
+            echo "- **Linux**: \`Touhou.School.of.Fish-*.AppImage\` (AppImage形式)"
+            echo ""
+            echo "## 📝 変更内容"
+            echo ""
+
+            # コミットログをカテゴリ別に分類
+            git log ${PREVIOUS_TAG}..${CURRENT_TAG} --pretty=format:"%s|||%h" | while IFS='|||' read -r message hash; do
+              case "$message" in
+                feat:*|feature:*|add:*)
+                  echo "FEATURE|||$message|||$hash"
+                  ;;
+                fix:*)
+                  echo "FIX|||$message|||$hash"
+                  ;;
+                docs:*)
+                  echo "DOCS|||$message|||$hash"
+                  ;;
+                chore:*)
+                  echo "CHORE|||$message|||$hash"
+                  ;;
+                perf:*)
+                  echo "PERF|||$message|||$hash"
+                  ;;
+                refactor:*)
+                  echo "REFACTOR|||$message|||$hash"
+                  ;;
+                build:*|release:*)
+                  echo "BUILD|||$message|||$hash"
+                  ;;
+                *)
+                  echo "OTHER|||$message|||$hash"
+                  ;;
+              esac
+            done > /tmp/commits.txt
+
+            # ✨ 新機能
+            if grep -q "^FEATURE" /tmp/commits.txt; then
+              echo "### ✨ 新機能"
+              echo ""
+              grep "^FEATURE" /tmp/commits.txt | while IFS='|||' read -r _ message hash; do
+                echo "- ${message#*: } (\`$hash\`)"
+              done
+              echo ""
+            fi
+
+            # 🐛 バグ修正
+            if grep -q "^FIX" /tmp/commits.txt; then
+              echo "### 🐛 バグ修正"
+              echo ""
+              grep "^FIX" /tmp/commits.txt | while IFS='|||' read -r _ message hash; do
+                echo "- ${message#*: } (\`$hash\`)"
+              done
+              echo ""
+            fi
+
+            # 📝 ドキュメント
+            if grep -q "^DOCS" /tmp/commits.txt; then
+              echo "### 📝 ドキュメント"
+              echo ""
+              grep "^DOCS" /tmp/commits.txt | while IFS='|||' read -r _ message hash; do
+                echo "- ${message#*: } (\`$hash\`)"
+              done
+              echo ""
+            fi
+
+            # ⚡ パフォーマンス改善
+            if grep -q "^PERF" /tmp/commits.txt; then
+              echo "### ⚡ パフォーマンス改善"
+              echo ""
+              grep "^PERF" /tmp/commits.txt | while IFS='|||' read -r _ message hash; do
+                echo "- ${message#*: } (\`$hash\`)"
+              done
+              echo ""
+            fi
+
+            # 🎨 リファクタリング
+            if grep -q "^REFACTOR" /tmp/commits.txt; then
+              echo "### 🎨 リファクタリング"
+              echo ""
+              grep "^REFACTOR" /tmp/commits.txt | while IFS='|||' read -r _ message hash; do
+                echo "- ${message#*: } (\`$hash\`)"
+              done
+              echo ""
+            fi
+
+            # 🔧 メンテナンス
+            if grep -q "^CHORE" /tmp/commits.txt; then
+              echo "### 🔧 メンテナンス"
+              echo ""
+              grep "^CHORE" /tmp/commits.txt | while IFS='|||' read -r _ message hash; do
+                echo "- ${message#*: } (\`$hash\`)"
+              done
+              echo ""
+            fi
+
+            # 🚀 ビルド・リリース
+            if grep -q "^BUILD" /tmp/commits.txt; then
+              echo "### 🚀 ビルド・リリース"
+              echo ""
+              grep "^BUILD" /tmp/commits.txt | while IFS='|||' read -r _ message hash; do
+                echo "- ${message#*: } (\`$hash\`)"
+              done
+              echo ""
+            fi
+
+            # 🔄 その他の変更
+            if grep -q "^OTHER" /tmp/commits.txt; then
+              echo "### 🔄 その他の変更"
+              echo ""
+              grep "^OTHER" /tmp/commits.txt | while IFS='|||' read -r _ message hash; do
+                echo "- $message (\`$hash\`)"
+              done
+              echo ""
+            fi
+
+            echo "---"
+            echo ""
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}"
+          } > /tmp/release_notes.md
+
+          cat /tmp/release_notes.md
+
       - name: GitHubリリース作成
         uses: ncipollo/release-action@v1
         with:
-          generateReleaseNotes: true
+          bodyFile: /tmp/release_notes.md
           artifacts: |
             artifacts/build-macos-latest/*.zip
             artifacts/build-windows-latest/*.zip
             artifacts/build-ubuntu-latest/*.AppImage
             artifacts/license-files/THIRD-PARTY-LICENSES.txt
             artifacts/license-files/NOTICE
+          draft: false
+          prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
