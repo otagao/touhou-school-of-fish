@@ -24,25 +24,39 @@ class Song {
      * @returns {string} 楽曲の詳細情報
      */
     getFullDescription() {
-      let description = `${this.title}`;
-      
+      // 全ての属性が配列の可能性があるため、配列の場合は文字列に変換
+      const titleDisplay = Array.isArray(this.title) ? this.title.join(', ') : this.title;
+      let description = `${titleDisplay}`;
+
       if (this.game) {
-        description += ` (${this.game})`;
-      }
-      
-      if (this.type) {
-        description += ` - ${this.type}`;
-      }
-      
-      if (this.character) {
-        description += ` / ${this.character}`;
+        const gameDisplay = Array.isArray(this.game) ? this.game.join(', ') : this.game;
+        if (gameDisplay) {
+          description += ` (${gameDisplay})`;
+        }
       }
 
-      // ★追加: stage情報も表示に含める場合 (任意)
-      if (this.stage) {
-        description += ` [${this.stage}]`;
+      if (this.type) {
+        const typeDisplay = Array.isArray(this.type) ? this.type.join(', ') : this.type;
+        if (typeDisplay) {
+          description += ` - ${typeDisplay}`;
+        }
       }
-      
+
+      if (this.character) {
+        const characterDisplay = Array.isArray(this.character) ? this.character.join(', ') : this.character;
+        if (characterDisplay) {
+          description += ` / ${characterDisplay}`;
+        }
+      }
+
+      // stage情報も表示に含める場合 (任意)
+      if (this.stage) {
+        const stageDisplay = Array.isArray(this.stage) ? this.stage.join(', ') : this.stage;
+        if (stageDisplay) {
+          description += ` [${stageDisplay}]`;
+        }
+      }
+
       return description;
     }
     
@@ -54,17 +68,23 @@ class Song {
      */
     matchesAnswer(answer, mode = 'exact') {
       if (!answer) return false;
-      
+
       const userAnswer = answer.trim().toLowerCase();
-      const correctAnswer = this.title.toLowerCase();
-      
+
+      // タイトルが配列の場合は、いずれかの要素と一致するかをチェック
+      const titleArray = Array.isArray(this.title) ? this.title : [this.title];
+
       if (mode === 'exact') {
-        return userAnswer === correctAnswer;
+        // 完全一致: 配列のいずれかの要素と完全に一致すればOK
+        return titleArray.some(title => title.toLowerCase() === userAnswer);
       } else if (mode === 'fuzzy') {
-        // 曖昧一致モード: 楽曲名に回答が含まれるか、またはその逆
-        return correctAnswer.includes(userAnswer) || userAnswer.includes(correctAnswer);
+        // 曖昧一致モード: 配列のいずれかの要素と部分一致すればOK
+        return titleArray.some(title => {
+          const correctAnswer = title.toLowerCase();
+          return correctAnswer.includes(userAnswer) || userAnswer.includes(correctAnswer);
+        });
       }
-      
+
       return false;
     }
     

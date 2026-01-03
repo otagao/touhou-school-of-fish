@@ -223,8 +223,19 @@ function getUniqueValuesForFilter(attribute, predefinedValues = []) {
   if (!songData || songData.length === 0) return [...predefinedValues].sort();
   const uniqueValues = new Set(predefinedValues);
   songData.forEach(song => {
-    if (song[attribute] && typeof song[attribute] === 'string' && song[attribute].trim() !== '') {
-      uniqueValues.add(song[attribute].trim());
+    const value = song[attribute];
+
+    // 配列の場合は各要素を個別に追加
+    if (Array.isArray(value)) {
+      value.forEach(item => {
+        if (item && typeof item === 'string' && item.trim() !== '') {
+          uniqueValues.add(item.trim());
+        }
+      });
+    }
+    // 文字列の場合は直接追加
+    else if (value && typeof value === 'string' && value.trim() !== '') {
+      uniqueValues.add(value.trim());
     }
   });
   return Array.from(uniqueValues).sort();
@@ -396,75 +407,141 @@ function getSelectedRadioValue(groupName) {
 }
 
 // CSVデータのパース処理
+/**
+ * CSV行をパースして値の配列を返す
+ * JSON配列形式（["value1", "value2"]）を含むセルに対応
+ * @param {string} line CSV行
+ * @returns {string[]} パースされた値の配列
+ */
+function parseCsvLine(line) {
+  const values = [];
+  let current = '';
+  let inBracket = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '[') {
+      inBracket = true;
+      current += char;
+    } else if (char === ']') {
+      inBracket = false;
+      current += char;
+    } else if (char === ',' && !inBracket) {
+      values.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  // 最後の値を追加
+  if (current) {
+    values.push(current);
+  }
+
+  return values;
+}
+
+/**
+ * JSON配列形式の文字列をパースして配列に変換
+ * @param {string} value JSON配列形式の文字列（例: '["道中", "1面"]'）
+ * @returns {string[]} パースされた配列、失敗時は元の値を含む配列
+ */
+function parseJsonArrayValue(value) {
+  const trimmed = value.trim();
+
+  // JSON配列形式かチェック
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (e) {
+      console.warn('JSON配列のパースに失敗:', value, e);
+    }
+  }
+
+  // JSON配列でない場合は単一の値として扱う（空文字の場合は空配列）
+  return trimmed ? [trimmed] : [];
+}
+
 function parseSongData(csvContent) {
   try {
     console.log('CSVパース処理を開始します');
-    
-    // 簡易的なCSVパース (実際の実装ではPapaParseを使用)
+
+    // 簡易的なCSVパース (JSON配列形式に対応)
     const lines = csvContent.split('\n');
     console.log(`CSVの行数: ${lines.length}`);
-    
+
     if (lines.length === 0) {
       console.error('CSVファイルが空です');
       throw new Error('CSVファイルが空です');
     }
-    
-    const headers = lines[0].split(',');
+
+    const headers = parseCsvLine(lines[0]);
     console.log(`CSVのヘッダー: ${headers.join(', ')}`);
-    
+
     if (headers.length < 2) {
       console.error('CSVヘッダーの形式が不正です');
       throw new Error('CSVヘッダーの形式が不正です');
     }
-    
+
     songData = [];
-    
+
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) {
         console.log(`行 ${i}: 空行のためスキップします`);
         continue;
       }
-      
-      const values = lines[i].split(',');
+
+      const values = parseCsvLine(lines[i]);
       console.log(`行 ${i}: ${values.length}個の値を検出`);
-      
+
       if (values.length < 2) {
         console.warn(`行 ${i}: 値の数が少ないため、この行はスキップします`);
         continue;
       }
-      
+
       const song = {};
-      
-      // CSVフォーマット: ファイル名,曲名,旧作or現行,初出orアレンジ,登場作品,担当キャラクター
+
+      // CSVフォーマット: ファイル名,曲名,旧作or現行,初出orアレンジ,登場作品,担当キャラクター,場面
+      // ファイル名以外の全ての列でJSON配列形式に対応
       let filename = values[0]?.trim() || '';
       // Windows環境ではスラッシュをバックスラッシュに変換
       if (window.electronAPI && window.electronAPI.platform === 'win32') {
         filename = filename.replace(/\//g, '\\');
       }
       song.filename = filename;
-      song.title = values[1]?.trim() || '';
-      song.generation = values[2]?.trim() || '';
-      song.type = values[3]?.trim() || '';
-      song.game = values[4]?.trim() || '';
-      song.character = values[5]?.trim() || '';
-      song.stage = values[6]?.trim() || ''; // ★追加: ステージ・場面
+
+      // タイトル: JSON配列形式をパース（配列の場合は最初の要素を使用）
+      song.title = parseJsonArrayValue(values[1]?.trim() || '');
+      song.generation = parseJsonArrayValue(values[2]?.trim() || '');
+      song.type = parseJsonArrayValue(values[3]?.trim() || '');
+      song.game = parseJsonArrayValue(values[4]?.trim() || '');
+      song.character = parseJsonArrayValue(values[5]?.trim() || '');
+      song.stage = parseJsonArrayValue(values[6]?.trim() || '');
+
       song.filePath = '';
-      
-      if (!song.filename || !song.title) {
+
+      // タイトルは配列なので、配列が空でないか、または最初の要素が存在するかをチェック
+      const hasTitle = Array.isArray(song.title) && song.title.length > 0 && song.title[0];
+      if (!song.filename || !hasTitle) {
         console.warn(`行 ${i}: ファイル名または曲名が空のため、この行はスキップします`);
         continue;
       }
-      
+
       songData.push(song);
-      
+
       // 最初の数件だけ詳細ログを出力
       if (i <= 3) {
         console.log(`楽曲データの例 (行 ${i}):`, JSON.stringify(song));
       }
     }
-    
+
     console.log(`${songData.length}曲の情報を読み込みました。`);
-    
+
     if (songData.length === 0) {
       console.error('有効な楽曲データがありません');
       throw new Error('有効な楽曲データがありません');
@@ -617,15 +694,17 @@ function renderSongList() {
     songElement.className = 'song-item';
     songElement.dataset.index = originalIndex; // songData 配列のインデックスを使う
 
-    // タイトル列
+    // タイトル列（配列の場合はカンマ区切りで表示）
     const titleCell = document.createElement('div');
     titleCell.className = 'song-title';
-    titleCell.textContent = song.title;
+    const titleDisplay = Array.isArray(song.title) ? song.title.join(', ') : song.title;
+    titleCell.textContent = titleDisplay;
 
-    // キャラクター列
+    // キャラクター列（配列の場合はカンマ区切りで表示）
     const characterCell = document.createElement('div');
     characterCell.className = 'song-character';
-    characterCell.textContent = song.character || ''; // キャラクターが未設定の場合は空文字
+    const characterDisplay = Array.isArray(song.character) ? song.character.join(', ') : song.character;
+    characterCell.textContent = characterDisplay || ''; // キャラクターが未設定の場合は空文字
 
     songElement.appendChild(titleCell);
     songElement.appendChild(characterCell);
@@ -674,24 +753,32 @@ function selectSong(index) {
     newSelectedItem.classList.add('active');
   }
 
-  // 選択した曲の情報を表示
-  console.log(`[renderer.js] 選択された曲: ${currentSong.title}, ファイル存在: ${currentSong.fileExists}, 音楽Dir設定: ${isMusicDirSet}`);
-  document.getElementById('nowPlayingTitle').textContent = currentSong.title;
-  
+  // 選択した曲の情報を表示（タイトルが配列の場合は最初の要素またはカンマ区切りで表示）
+  const titleDisplay = Array.isArray(currentSong.title) ? currentSong.title.join(', ') : currentSong.title;
+  console.log(`[renderer.js] 選択された曲: ${titleDisplay}, ファイル存在: ${currentSong.fileExists}, 音楽Dir設定: ${isMusicDirSet}`);
+  document.getElementById('nowPlayingTitle').textContent = titleDisplay;
+
   // 詳細情報を箇条書き形式で作成
   const detailsElement = document.getElementById('nowPlayingDetails');
   detailsElement.innerHTML = ''; // 既存の内容をクリア
-  
+
+  // 全ての属性が配列の可能性があるため、配列の場合は文字列に変換
+  const typeDisplay = Array.isArray(currentSong.type) ? currentSong.type.join(', ') : currentSong.type;
+  const generationDisplay = Array.isArray(currentSong.generation) ? currentSong.generation.join(', ') : currentSong.generation;
+  const gameDisplay = Array.isArray(currentSong.game) ? currentSong.game.join(', ') : currentSong.game;
+  const stageDisplay = Array.isArray(currentSong.stage) ? currentSong.stage.join(', ') : currentSong.stage;
+  const characterDisplay = Array.isArray(currentSong.character) ? currentSong.character.join(', ') : currentSong.character;
+
   const details = [
-    { label: 'タイプ', value: currentSong.type },
-    { label: 'シリーズ区分', value: currentSong.generation },
-    { label: '作品名', value: currentSong.game },
-    { label: '場面', value: currentSong.stage },
-    { label: 'キャラクター', value: currentSong.character }
+    { label: 'タイプ', value: typeDisplay },
+    { label: 'シリーズ区分', value: generationDisplay },
+    { label: '作品名', value: gameDisplay },
+    { label: '場面', value: stageDisplay },
+    { label: 'キャラクター', value: characterDisplay }
   ];
-  
+
   details.forEach(detail => {
-    if (detail.value && detail.value.trim() !== '') {
+    if (detail.value && detail.value.toString().trim() !== '') {
       const listItem = document.createElement('div');
       listItem.className = 'song-detail-item';
       listItem.innerHTML = `<span class="detail-label">${detail.label}:</span> <span class="detail-value">${detail.value}</span>`;
@@ -867,13 +954,15 @@ function filterSongsInternal() {
 
   return songData.filter(song => {
     // 1. テキスト検索 (AND検索) - titleとcharacterのみに限定
+    // titleとcharacterは配列の可能性があるため、配列の全要素を検索対象にする
     let keywordMatch = true;
     if (keywords.length > 0) {
       keywordMatch = keywords.every(keyword => {
-        const searchFields = [
-          song.title,
-          song.character
-        ];
+        // 配列を平坦化して検索対象フィールドのリストを作成
+        const titleArray = Array.isArray(song.title) ? song.title : [song.title];
+        const characterArray = Array.isArray(song.character) ? song.character : [song.character];
+        const searchFields = [...titleArray, ...characterArray];
+
         return searchFields.some(field =>
           field && typeof field === 'string' && field.toLowerCase().includes(keyword)
         );
@@ -882,23 +971,32 @@ function filterSongsInternal() {
     if (!keywordMatch) return false;
 
     // 2. タイプフィルター (カテゴリ内でOR、未選択ならそのカテゴリは無視)
-    if (selectedTypes.length > 0 && !selectedTypes.includes(song.type)) {
-      return false;
+    // 全ての属性は配列の可能性があるため、配列として扱う
+    if (selectedTypes.length > 0) {
+      const typeArray = Array.isArray(song.type) ? song.type : [song.type];
+      const hasMatch = typeArray.some(type => selectedTypes.includes(type));
+      if (!hasMatch) return false;
     }
 
     // 3. シリーズ区分フィルター
-    if (selectedGenerations.length > 0 && !selectedGenerations.includes(song.generation)) {
-      return false;
+    if (selectedGenerations.length > 0) {
+      const generationArray = Array.isArray(song.generation) ? song.generation : [song.generation];
+      const hasMatch = generationArray.some(gen => selectedGenerations.includes(gen));
+      if (!hasMatch) return false;
     }
 
     // 4. 作品名フィルター
-    if (selectedGames.length > 0 && !selectedGames.includes(song.game)) {
-      return false;
+    if (selectedGames.length > 0) {
+      const gameArray = Array.isArray(song.game) ? song.game : [song.game];
+      const hasMatch = gameArray.some(game => selectedGames.includes(game));
+      if (!hasMatch) return false;
     }
 
-    // 5. ステージ・場面フィルター（チェックボックス）
-    if (selectedStages.length > 0 && !selectedStages.includes(song.stage)) {
-      return false;
+    // 5. ステージ・場面フィルター
+    if (selectedStages.length > 0) {
+      const stageArray = Array.isArray(song.stage) ? song.stage : [song.stage];
+      const hasMatch = stageArray.some(stage => selectedStages.includes(stage));
+      if (!hasMatch) return false;
     }
 
     return true; // 全てのフィルター条件を通過
@@ -1223,23 +1321,37 @@ function showQuestionResult(isCorrect, userAnswer, responseTime) {
   
   // 正解と回答時間を表示
   const timeInSeconds = (responseTime / 1000).toFixed(1);
+
+  // タイトルが配列の場合は最初の要素またはカンマ区切りで表示
+  const titleDisplay = Array.isArray(quizState.currentQuizSong.title)
+    ? quizState.currentQuizSong.title.join(', ')
+    : quizState.currentQuizSong.title;
+
   correctAnswer.innerHTML = `
-    <strong>正解:</strong> ${quizState.currentQuizSong.title}<br>
+    <strong>正解:</strong> ${titleDisplay}<br>
     <strong>あなたの回答:</strong> ${userAnswer}<br>
     <strong>回答時間:</strong> ${timeInSeconds}秒
   `;
-  
+
   // 楽曲詳細情報を表示
   const song = quizState.currentQuizSong;
+
+  // 全ての属性が配列の可能性があるため、配列の場合は文字列に変換
+  const typeDisplay = Array.isArray(song.type) ? song.type.join(', ') : song.type;
+  const generationDisplay = Array.isArray(song.generation) ? song.generation.join(', ') : song.generation;
+  const gameDisplay = Array.isArray(song.game) ? song.game.join(', ') : song.game;
+  const stageDisplay = Array.isArray(song.stage) ? song.stage.join(', ') : song.stage;
+  const characterDisplay = Array.isArray(song.character) ? song.character.join(', ') : song.character;
+
   const details = [
-    { label: 'タイプ', value: song.type },
-    { label: 'シリーズ区分', value: song.generation },
-    { label: '作品名', value: song.game },
-    { label: '場面', value: song.stage },
-    { label: 'キャラクター', value: song.character }
-  ].filter(detail => detail.value && detail.value.trim() !== '');
-  
-  songDetails.innerHTML = details.map(detail => 
+    { label: 'タイプ', value: typeDisplay },
+    { label: 'シリーズ区分', value: generationDisplay },
+    { label: '作品名', value: gameDisplay },
+    { label: '場面', value: stageDisplay },
+    { label: 'キャラクター', value: characterDisplay }
+  ].filter(detail => detail.value && detail.value.toString().trim() !== '');
+
+  songDetails.innerHTML = details.map(detail =>
     `<div><span style="font-weight: bold;">${detail.label}:</span> ${detail.value}</div>`
   ).join('');
   
@@ -1517,24 +1629,34 @@ function filterQuizSongsInternal() {
   const selectedStages = getSelectedQuizCheckboxValues('quizStageFilter');
 
   return songData.filter(song => {
+    // 全ての属性は配列の可能性があるため、配列として扱う
+
     // 1. タイプフィルター (カテゴリ内でOR、未選択ならそのカテゴリは無視)
-    if (selectedTypes.length > 0 && !selectedTypes.includes(song.type)) {
-      return false;
+    if (selectedTypes.length > 0) {
+      const typeArray = Array.isArray(song.type) ? song.type : [song.type];
+      const hasMatch = typeArray.some(type => selectedTypes.includes(type));
+      if (!hasMatch) return false;
     }
 
     // 2. シリーズ区分フィルター
-    if (selectedGenerations.length > 0 && !selectedGenerations.includes(song.generation)) {
-      return false;
+    if (selectedGenerations.length > 0) {
+      const generationArray = Array.isArray(song.generation) ? song.generation : [song.generation];
+      const hasMatch = generationArray.some(gen => selectedGenerations.includes(gen));
+      if (!hasMatch) return false;
     }
 
     // 3. 作品名フィルター
-    if (selectedGames.length > 0 && !selectedGames.includes(song.game)) {
-      return false;
+    if (selectedGames.length > 0) {
+      const gameArray = Array.isArray(song.game) ? song.game : [song.game];
+      const hasMatch = gameArray.some(game => selectedGames.includes(game));
+      if (!hasMatch) return false;
     }
 
-    // 4. ステージ・場面フィルター（チェックボックス）
-    if (selectedStages.length > 0 && !selectedStages.includes(song.stage)) {
-      return false;
+    // 4. ステージ・場面フィルター
+    if (selectedStages.length > 0) {
+      const stageArray = Array.isArray(song.stage) ? song.stage : [song.stage];
+      const hasMatch = stageArray.some(stage => selectedStages.includes(stage));
+      if (!hasMatch) return false;
     }
 
     return true; // 全てのフィルター条件を通過
