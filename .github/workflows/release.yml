@@ -141,32 +141,32 @@ jobs:
             echo ""
 
             # コミットログをカテゴリ別に分類
-            git log ${PREVIOUS_TAG}..${CURRENT_TAG} --pretty=format:"%s:::%h" > /tmp/raw_commits.txt
-            while IFS=':::' read -r message hash; do
+            git log ${PREVIOUS_TAG}..${CURRENT_TAG} --pretty=format:"%s	%h" > /tmp/raw_commits.txt
+            while IFS=$'\t' read -r message hash; do
               case "$message" in
                 feat:*|feature:*|add:*)
-                  echo "FEATURE:::$message:::$hash"
+                  echo "FEATURE	$message	$hash"
                   ;;
                 fix:*)
-                  echo "FIX:::$message:::$hash"
+                  echo "FIX	$message	$hash"
                   ;;
                 docs:*)
-                  echo "DOCS:::$message:::$hash"
+                  echo "DOCS	$message	$hash"
                   ;;
                 chore:*)
-                  echo "CHORE:::$message:::$hash"
+                  echo "CHORE	$message	$hash"
                   ;;
                 perf:*)
-                  echo "PERF:::$message:::$hash"
+                  echo "PERF	$message	$hash"
                   ;;
                 refactor:*)
-                  echo "REFACTOR:::$message:::$hash"
+                  echo "REFACTOR	$message	$hash"
                   ;;
                 build:*|release:*)
-                  echo "BUILD:::$message:::$hash"
+                  echo "BUILD	$message	$hash"
                   ;;
                 *)
-                  echo "OTHER:::$message:::$hash"
+                  echo "OTHER	$message	$hash"
                   ;;
               esac
             done < /tmp/raw_commits.txt > /tmp/commits.txt
@@ -175,7 +175,7 @@ jobs:
             if grep -q "^FEATURE" /tmp/commits.txt; then
               echo "### ✨ 新機能"
               echo ""
-              grep "^FEATURE" /tmp/commits.txt | while IFS=':::' read -r _ message hash; do
+              grep "^FEATURE" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
                 echo "- ${message#*: } (\`$hash\`)"
               done
               echo ""
@@ -185,7 +185,7 @@ jobs:
             if grep -q "^FIX" /tmp/commits.txt; then
               echo "### 🐛 バグ修正"
               echo ""
-              grep "^FIX" /tmp/commits.txt | while IFS=':::' read -r _ message hash; do
+              grep "^FIX" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
                 echo "- ${message#*: } (\`$hash\`)"
               done
               echo ""
@@ -195,7 +195,7 @@ jobs:
             if grep -q "^DOCS" /tmp/commits.txt; then
               echo "### 📝 ドキュメント"
               echo ""
-              grep "^DOCS" /tmp/commits.txt | while IFS=':::' read -r _ message hash; do
+              grep "^DOCS" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
                 echo "- ${message#*: } (\`$hash\`)"
               done
               echo ""
@@ -205,7 +205,7 @@ jobs:
             if grep -q "^PERF" /tmp/commits.txt; then
               echo "### ⚡ パフォーマンス改善"
               echo ""
-              grep "^PERF" /tmp/commits.txt | while IFS=':::' read -r _ message hash; do
+              grep "^PERF" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
                 echo "- ${message#*: } (\`$hash\`)"
               done
               echo ""
@@ -215,7 +215,7 @@ jobs:
             if grep -q "^REFACTOR" /tmp/commits.txt; then
               echo "### 🎨 リファクタリング"
               echo ""
-              grep "^REFACTOR" /tmp/commits.txt | while IFS=':::' read -r _ message hash; do
+              grep "^REFACTOR" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
                 echo "- ${message#*: } (\`$hash\`)"
               done
               echo ""
@@ -225,7 +225,7 @@ jobs:
             if grep -q "^CHORE" /tmp/commits.txt; then
               echo "### 🔧 メンテナンス"
               echo ""
-              grep "^CHORE" /tmp/commits.txt | while IFS=':::' read -r _ message hash; do
+              grep "^CHORE" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
                 echo "- ${message#*: } (\`$hash\`)"
               done
               echo ""
@@ -235,7 +235,7 @@ jobs:
             if grep -q "^BUILD" /tmp/commits.txt; then
               echo "### 🚀 ビルド・リリース"
               echo ""
-              grep "^BUILD" /tmp/commits.txt | while IFS=':::' read -r _ message hash; do
+              grep "^BUILD" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
                 echo "- ${message#*: } (\`$hash\`)"
               done
               echo ""
@@ -245,7 +245,7 @@ jobs:
             if grep -q "^OTHER" /tmp/commits.txt; then
               echo "### 🔄 その他の変更"
               echo ""
-              grep "^OTHER" /tmp/commits.txt | while IFS=':::' read -r _ message hash; do
+              grep "^OTHER" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
                 echo "- $message (\`$hash\`)"
               done
               echo ""
