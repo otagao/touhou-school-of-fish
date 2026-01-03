@@ -1155,15 +1155,42 @@ function presentNextQuestion() {
   // 音楽を読み込み（これは非同期処理）
   loadQuizSong(selectedSong);
 
-  // フォーカスを設定（setTimeoutで次のイベントループで実行し、確実にフォーカスする）
-  setTimeout(() => {
-    if (quizState.isActive && quizState.currentQuizSong === selectedSong) {
-      answerInput.focus();
-    }
-  }, 100);
-
   // 時間計測開始
   quizState.questionStartTime = Date.now();
+
+  // フォーカスを設定（多段階で確実にフォーカスする）
+  // 1. Electronウィンドウ自体にフォーカスを設定（メインプロセス経由）
+  if (window.electronAPI && window.electronAPI.focusWindow) {
+    window.electronAPI.focusWindow().catch(err => {
+      console.warn('[Quiz] ウィンドウフォーカス設定エラー:', err);
+    });
+  }
+
+  // 2. まず即座にフォーカスを試みる
+  if (answerInput && !answerInput.disabled) {
+    answerInput.focus();
+  }
+
+  // 3. requestAnimationFrameで再度フォーカスを設定（Electron環境での確実性向上）
+  requestAnimationFrame(() => {
+    if (quizState.isActive && quizState.currentQuizSong === selectedSong) {
+      const input = document.getElementById('answerText');
+      if (input && !input.disabled) {
+        input.focus();
+        // さらにsetTimeoutで最終確認（Electronのウィンドウフォーカス問題対策）
+        setTimeout(() => {
+          if (quizState.isActive && quizState.currentQuizSong === selectedSong) {
+            const finalInput = document.getElementById('answerText');
+            if (finalInput && !finalInput.disabled && document.activeElement !== finalInput) {
+              finalInput.focus();
+              console.log('[Quiz] 入力欄に遅延フォーカスを設定しました');
+            }
+          }
+        }, 50);
+        console.log('[Quiz] 入力欄にフォーカスを設定しました');
+      }
+    }
+  });
 }
 
 /**
@@ -1280,7 +1307,9 @@ function submitAnswer() {
   
   const userAnswer = document.getElementById('answerText').value.trim();
   if (!userAnswer) {
-    alert('解答を入力してください。');
+    // 空の場合は何もせず、入力欄にフォーカスを戻す
+    const answerInput = document.getElementById('answerText');
+    answerInput.focus();
     return;
   }
   
@@ -1404,19 +1433,21 @@ function nextQuestion() {
   if (!quizState.isActive) {
     return;
   }
-  
+
   // 現在の楽曲を完全に停止・クリーンアップ
   cleanupQuizAudioPlayer();
   console.log('[Quiz] 次の問題に進むため、現在の楽曲を停止しました');
-  
+
   // 結果表示を非表示
   document.getElementById('quizResult').classList.add('hidden');
   document.getElementById('nextQuestionBtn').style.display = 'none';
-  
+
   // 解答エリアを再有効化
-  document.getElementById('submitAnswerBtn').disabled = false;
-  document.getElementById('answerText').disabled = false;
-  
+  const answerInput = document.getElementById('answerText');
+  const submitBtn = document.getElementById('submitAnswerBtn');
+  answerInput.disabled = false;
+  submitBtn.disabled = false;
+
   // 次の問題を出題（自動再生される）
   presentNextQuestion();
 }

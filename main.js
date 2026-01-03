@@ -126,28 +126,37 @@ ipcMain.handle('read-file', async (event, filePath) => {
     console.error('ファイルパスが指定されていません');
     return null;
   }
-  
+
   try {
     console.log(`ファイルの読み込み: ${filePath}`);
-    
+
     // ファイルが存在するか確認
     if (!fs.existsSync(filePath)) {
       console.error(`ファイルが存在しません: ${filePath}`);
       throw new Error(`ファイルが存在しません: ${filePath}`);
     }
-    
+
     const content = fs.readFileSync(filePath, 'utf-8');
     console.log(`ファイル読み込み成功: ${filePath}, サイズ: ${content.length}バイト`);
-    
+
     if (content.length > 0) {
       console.log(`ファイル内容の最初の100文字: ${content.substring(0, 100)}`);
     } else {
       console.warn('ファイルの内容が空です');
     }
-    
+
     return content;
   } catch (error) {
     console.error('ファイル読み込みエラー:', error);
     throw new Error(`ファイルの読み込みに失敗しました: ${error.message}`);
   }
+});
+
+// ウィンドウにフォーカスを設定
+ipcMain.handle('focus-window', async () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.focus();
+    return true;
+  }
+  return false;
 });

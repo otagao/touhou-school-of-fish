@@ -33,5 +33,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       console.error('readFile エラー:', error);
       throw new Error(`ファイルの読み込みに失敗しました: ${error.message}`);
     }
-  }
+  },
+
+  // ウィンドウにフォーカスを設定
+  focusWindow: () => ipcRenderer.invoke('focus-window')
 });
