@@ -141,7 +141,8 @@ jobs:
             echo ""
 
             # コミットログをカテゴリ別に分類
-            git log ${PREVIOUS_TAG}..${CURRENT_TAG} --pretty=format:"%s:::%h" | while IFS=':::' read -r message hash; do
+            git log ${PREVIOUS_TAG}..${CURRENT_TAG} --pretty=format:"%s:::%h" > /tmp/raw_commits.txt
+            while IFS=':::' read -r message hash; do
               case "$message" in
                 feat:*|feature:*|add:*)
                   echo "FEATURE:::$message:::$hash"
@@ -168,7 +169,7 @@ jobs:
                   echo "OTHER:::$message:::$hash"
                   ;;
               esac
-            done > /tmp/commits.txt
+            done < /tmp/raw_commits.txt > /tmp/commits.txt
 
             # ✨ 新機能
             if grep -q "^FEATURE" /tmp/commits.txt; then
