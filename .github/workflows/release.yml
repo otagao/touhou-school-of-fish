@@ -270,4 +270,7 @@ jobs:
             artifacts/license-files/NOTICE
           draft: false
           prerelease: false
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
           token: ${{ secrets.GITHUB_TOKEN }}
