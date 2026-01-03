@@ -1045,20 +1045,27 @@ function switchMode(mode) {
 function prepareQuizMode() {
   // 回答方式をリセット
   document.getElementById('answerMode').value = 'exact';
-  
+
   // クイズコンテナを非表示に
   document.getElementById('quizContainer').classList.add('hidden');
   document.getElementById('quizResult').classList.add('hidden');
-  
+
   // 各種UIをリセット
-  document.getElementById('answerText').value = '';
-  
+  const answerInput = document.getElementById('answerText');
+  const submitBtn = document.getElementById('submitAnswerBtn');
+  const nextBtn = document.getElementById('nextQuestionBtn');
+
+  answerInput.value = '';
+  answerInput.disabled = false;
+  submitBtn.disabled = false;
+  nextBtn.style.display = 'none';
+
   // 演習モード用の絞り込みフィルターを描画
   renderQuizFilterControls();
-  
+
   // 楽曲数をリアルタイム更新
   updateQuizSongCounts();
-  
+
   // 回答方式に基づいてボタン状態を更新
   updateQuizStartButtonForAnswerMode();
 }
@@ -1091,11 +1098,19 @@ function startQuiz() {
   };
   
   console.log(`[Quiz] ${availableSongs.length}曲が出題対象です`);
-  
+
   // UIを出題モードに切り替え
   document.getElementById('quizContainer').classList.remove('hidden');
   document.getElementById('quizResult').classList.add('hidden');
-  
+  document.getElementById('nextQuestionBtn').style.display = 'none';
+
+  // 回答UIを初期化（念のため）
+  const answerInput = document.getElementById('answerText');
+  const submitBtn = document.getElementById('submitAnswerBtn');
+  answerInput.value = '';
+  answerInput.disabled = false;
+  submitBtn.disabled = false;
+
   // 最初の問題を出題
   presentNextQuestion();
 }
@@ -1128,15 +1143,25 @@ function presentNextQuestion() {
   
   // UIを更新
   updateQuizUI();
-  
-  // 音楽を読み込み
-  loadQuizSong(selectedSong);
-  
-  // 解答用テキストボックスをクリアしてフォーカス
+
+  // 解答用テキストボックスをクリアして有効化
   const answerInput = document.getElementById('answerText');
   answerInput.value = '';
-  answerInput.focus();
-  
+  answerInput.disabled = false;
+
+  // 回答ボタンを有効化
+  document.getElementById('submitAnswerBtn').disabled = false;
+
+  // 音楽を読み込み（これは非同期処理）
+  loadQuizSong(selectedSong);
+
+  // フォーカスを設定（setTimeoutで次のイベントループで実行し、確実にフォーカスする）
+  setTimeout(() => {
+    if (quizState.isActive && quizState.currentQuizSong === selectedSong) {
+      answerInput.focus();
+    }
+  }, 100);
+
   // 時間計測開始
   quizState.questionStartTime = Date.now();
 }
@@ -1264,22 +1289,27 @@ function submitAnswer() {
   quizState.responseTimes.push(responseTime);
   
   console.log(`[Quiz] ユーザー回答: "${userAnswer}", 正解: "${quizState.currentQuizSong.title}", 回答時間: ${responseTime}ms`);
-  
-  // 完全一致モードでの判定
-  const isCorrect = checkExactMatch(userAnswer, quizState.currentQuizSong.title);
-  
-  if (isCorrect) {
-    quizState.correctAnswers++;
-    console.log('[Quiz] 正解!');
-  } else {
-    console.log('[Quiz] 不正解');
+
+  try {
+    // 完全一致モードでの判定
+    const isCorrect = checkExactMatch(userAnswer, quizState.currentQuizSong.title);
+
+    if (isCorrect) {
+      quizState.correctAnswers++;
+      console.log('[Quiz] 正解!');
+    } else {
+      console.log('[Quiz] 不正解');
+    }
+
+    // 結果を表示
+    showQuestionResult(isCorrect, userAnswer, responseTime);
+
+    // 使用済み楽曲に追加
+    quizState.usedSongs.push(quizState.currentQuizSong);
+  } catch (error) {
+    console.error('[Quiz] 回答判定中にエラーが発生:', error);
+    alert(`回答の判定中にエラーが発生しました: ${error.message}`);
   }
-  
-  // 結果を表示
-  showQuestionResult(isCorrect, userAnswer, responseTime);
-  
-  // 使用済み楽曲に追加
-  quizState.usedSongs.push(quizState.currentQuizSong);
 }
 
 /**
@@ -1294,10 +1324,13 @@ function checkExactMatch(userAnswer, correctTitle) {
       .replace(/\s+/g, ' ') // 連続する空白を単一のスペースに
       .toLowerCase();
   };
-  
+
   const normalizedAnswer = normalizeString(userAnswer);
-  const normalizedTitle = normalizeString(correctTitle);
-  
+
+  // correctTitle が配列の場合は最初の要素を使用
+  const titleStr = Array.isArray(correctTitle) ? correctTitle[0] : correctTitle;
+  const normalizedTitle = normalizeString(titleStr || '');
+
   return normalizedAnswer === normalizedTitle;
 }
 
