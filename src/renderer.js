@@ -1,3 +1,6 @@
+// ユーティリティのインポート
+const fileUtils = require('./utils/fileUtils.js');
+
 // グローバル変数
 let musicDirectory = '';
 let csvFilePath = '';
@@ -20,22 +23,6 @@ let quizState = {
   quizAudioPlayer: null
 };
 
-/**
- * ファイル名またはフルパスから拡張子を除いたファイル名本体を取得する
- * @param {string} filePath ファイルパスまたはファイル名
- * @returns {string} 拡張子を除いたファイル名
- */
-function getBaseName(filePath) {
-  if (!filePath) return '';
-  // パス区切り文字 (\ または /) で分割し、最後の要素（ファイル名）を取得
-  const fileName = filePath.split(/[\\/]/).pop();
-  // 最後のドット (.) の位置を見つける
-  const lastDotIndex = fileName.lastIndexOf('.');
-  // ドットがない、またはドットが最初にある（隠しファイルなど）場合は、そのまま返す
-  if (lastDotIndex <= 0) return fileName;
-  // ドットより前の部分を返す
-  return fileName.slice(0, lastDotIndex);
-}
 
 // DOMが読み込まれたら実行
 document.addEventListener('DOMContentLoaded', () => {
@@ -552,23 +539,6 @@ function parseSongData(csvContent) {
   }
 }
 
-/**
- * ファイルパスから拡張子のみを除去（ディレクトリ構造は保持）
- * @param {string} filePath ファイルパス
- * @returns {string} 拡張子を除いたファイルパス
- */
-function removeExtension(filePath) {
-  if (!filePath) return '';
-  const lastDotIndex = filePath.lastIndexOf('.');
-  const lastSepIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
-
-  // ドットがパス区切り文字より後にある場合のみ拡張子として扱う
-  if (lastDotIndex > lastSepIndex && lastDotIndex > 0) {
-    return filePath.slice(0, lastDotIndex);
-  }
-  return filePath;
-}
-
 // 楽曲データとファイルのマッチング
 function matchSongsWithFiles(audioFiles) {
   try {
@@ -592,7 +562,7 @@ function matchSongsWithFiles(audioFiles) {
         }
 
         // 拡張子を除去して小文字に変換
-        const relativePathNoExt = removeExtension(relativePath).toLowerCase();
+        const relativePathNoExt = fileUtils.removeExtension(relativePath).toLowerCase();
 
         if (relativePathNoExt && !audioFileMap.has(relativePathNoExt)) {
             audioFileMap.set(relativePathNoExt, fullPath);
