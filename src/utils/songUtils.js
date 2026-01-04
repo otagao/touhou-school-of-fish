@@ -2,6 +2,8 @@
  * 楽曲データ処理に関するユーティリティ関数群
  */
 
+const Song = require('../models/Song.js');
+
 /**
  * CSV行をパースして値の配列を返す（JSON配列形式対応）
  * @param {string} line CSV行
@@ -102,8 +104,6 @@ function parseSongDataFromCsv(csvContent, platform = 'win32') {
         continue;
       }
 
-      const song = {};
-
       // CSVフォーマット: ファイル名,曲名,シリーズ区分,楽曲タイプ,登場作品,担当キャラクター,場面
       // ファイル名以外の全ての列でJSON配列形式に対応
       let filename = values[0]?.trim() || '';
@@ -111,24 +111,33 @@ function parseSongDataFromCsv(csvContent, platform = 'win32') {
       if (platform === 'win32') {
         filename = filename.replace(/\//g, '\\');
       }
-      song.filename = filename;
 
       // JSON配列形式をパース（配列の場合は配列として保持）
-      song.title = parseJsonArrayValue(values[1]?.trim() || '');
-      song.generation = parseJsonArrayValue(values[2]?.trim() || '');
-      song.type = parseJsonArrayValue(values[3]?.trim() || '');
-      song.game = parseJsonArrayValue(values[4]?.trim() || '');
-      song.character = parseJsonArrayValue(values[5]?.trim() || '');
-      song.stage = parseJsonArrayValue(values[6]?.trim() || '');
-
-      song.filePath = '';
+      const title = parseJsonArrayValue(values[1]?.trim() || '');
+      const generation = parseJsonArrayValue(values[2]?.trim() || '');
+      const type = parseJsonArrayValue(values[3]?.trim() || '');
+      const game = parseJsonArrayValue(values[4]?.trim() || '');
+      const character = parseJsonArrayValue(values[5]?.trim() || '');
+      const stage = parseJsonArrayValue(values[6]?.trim() || '');
 
       // タイトルは配列なので、配列が空でないか、または最初の要素が存在するかをチェック
-      const hasTitle = Array.isArray(song.title) && song.title.length > 0 && song.title[0];
-      if (!song.filename || !hasTitle) {
+      const hasTitle = Array.isArray(title) && title.length > 0 && title[0];
+      if (!filename || !hasTitle) {
         console.warn(`[songUtils.js] 行 ${i}: ファイル名または曲名が空のため、この行はスキップします`);
         continue;
       }
+
+      // Songインスタンスを生成
+      const song = new Song({
+        filename: filename,
+        title: title,
+        generation: generation,
+        type: type,
+        game: game,
+        character: character,
+        stage: stage,
+        filePath: ''
+      });
 
       songs.push(song);
 

@@ -1017,8 +1017,8 @@ function submitAnswer() {
   console.log(`[Quiz] ユーザー回答: "${userAnswer}", 正解: "${quizState.currentQuizSong.title}", 回答時間: ${responseTime}ms`);
 
   try {
-    // 完全一致モードでの判定
-    const isCorrect = checkExactMatch(userAnswer, quizState.currentQuizSong.title);
+    // Song.matchesAnswer()を使用して完全一致モードで判定
+    const isCorrect = quizState.currentQuizSong.matchesAnswer(userAnswer, 'exact');
 
     if (isCorrect) {
       quizState.correctAnswers++;
@@ -1036,28 +1036,6 @@ function submitAnswer() {
     console.error('[Quiz] 回答判定中にエラーが発生:', error);
     alert(`回答の判定中にエラーが発生しました: ${error.message}`);
   }
-}
-
-/**
- * 完全一致モードでの解答判定
- */
-function checkExactMatch(userAnswer, correctTitle) {
-  // 空白と全角半角を正規化して比較
-  const normalizeString = (str) => {
-    return str
-      .trim()
-      .replace(/　/g, ' ') // 全角スペースを半角スペースに
-      .replace(/\s+/g, ' ') // 連続する空白を単一のスペースに
-      .toLowerCase();
-  };
-
-  const normalizedAnswer = normalizeString(userAnswer);
-
-  // correctTitle が配列の場合は最初の要素を使用
-  const titleStr = Array.isArray(correctTitle) ? correctTitle[0] : correctTitle;
-  const normalizedTitle = normalizeString(titleStr || '');
-
-  return normalizedAnswer === normalizedTitle;
 }
 
 /**
