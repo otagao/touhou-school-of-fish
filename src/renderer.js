@@ -1,5 +1,6 @@
 // ユーティリティのインポート
 const fileUtils = require('./utils/fileUtils.js');
+const songUtils = require('./utils/songUtils.js');
 
 // グローバル変数
 let musicDirectory = '';
@@ -207,25 +208,8 @@ async function startApplication() {
  * @returns {string[]} ソート済みのユニークな値の配列
  */
 function getUniqueValuesForFilter(attribute, predefinedValues = []) {
-  if (!songData || songData.length === 0) return [...predefinedValues].sort();
-  const uniqueValues = new Set(predefinedValues);
-  songData.forEach(song => {
-    const value = song[attribute];
-
-    // 配列の場合は各要素を個別に追加
-    if (Array.isArray(value)) {
-      value.forEach(item => {
-        if (item && typeof item === 'string' && item.trim() !== '') {
-          uniqueValues.add(item.trim());
-        }
-      });
-    }
-    // 文字列の場合は直接追加
-    else if (value && typeof value === 'string' && value.trim() !== '') {
-      uniqueValues.add(value.trim());
-    }
-  });
-  return Array.from(uniqueValues).sort();
+  // songUtils.jsの関数を使用
+  return songUtils.getUniqueAttributes(songData, attribute, predefinedValues);
 }
 
 /**
@@ -400,141 +384,13 @@ function getSelectedRadioValue(groupName) {
  * @param {string} line CSV行
  * @returns {string[]} パースされた値の配列
  */
-function parseCsvLine(line) {
-  const values = [];
-  let current = '';
-  let inBracket = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-
-    if (char === '[') {
-      inBracket = true;
-      current += char;
-    } else if (char === ']') {
-      inBracket = false;
-      current += char;
-    } else if (char === ',' && !inBracket) {
-      values.push(current);
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-
-  // 最後の値を追加
-  if (current) {
-    values.push(current);
-  }
-
-  return values;
-}
-
-/**
- * JSON配列形式の文字列をパースして配列に変換
- * @param {string} value JSON配列形式の文字列（例: '["道中", "1面"]'）
- * @returns {string[]} パースされた配列、失敗時は元の値を含む配列
- */
-function parseJsonArrayValue(value) {
-  const trimmed = value.trim();
-
-  // JSON配列形式かチェック
-  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-    } catch (e) {
-      console.warn('JSON配列のパースに失敗:', value, e);
-    }
-  }
-
-  // JSON配列でない場合は単一の値として扱う（空文字の場合は空配列）
-  return trimmed ? [trimmed] : [];
-}
-
 function parseSongData(csvContent) {
   try {
-    console.log('CSVパース処理を開始します');
-
-    // 簡易的なCSVパース (JSON配列形式に対応)
-    const lines = csvContent.split('\n');
-    console.log(`CSVの行数: ${lines.length}`);
-
-    if (lines.length === 0) {
-      console.error('CSVファイルが空です');
-      throw new Error('CSVファイルが空です');
-    }
-
-    const headers = parseCsvLine(lines[0]);
-    console.log(`CSVのヘッダー: ${headers.join(', ')}`);
-
-    if (headers.length < 2) {
-      console.error('CSVヘッダーの形式が不正です');
-      throw new Error('CSVヘッダーの形式が不正です');
-    }
-
-    songData = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) {
-        console.log(`行 ${i}: 空行のためスキップします`);
-        continue;
-      }
-
-      const values = parseCsvLine(lines[i]);
-      console.log(`行 ${i}: ${values.length}個の値を検出`);
-
-      if (values.length < 2) {
-        console.warn(`行 ${i}: 値の数が少ないため、この行はスキップします`);
-        continue;
-      }
-
-      const song = {};
-
-      // CSVフォーマット: ファイル名,曲名,旧作or現行,初出orアレンジ,登場作品,担当キャラクター,場面
-      // ファイル名以外の全ての列でJSON配列形式に対応
-      let filename = values[0]?.trim() || '';
-      // Windows環境ではスラッシュをバックスラッシュに変換
-      if (window.electronAPI && window.electronAPI.platform === 'win32') {
-        filename = filename.replace(/\//g, '\\');
-      }
-      song.filename = filename;
-
-      // タイトル: JSON配列形式をパース（配列の場合は最初の要素を使用）
-      song.title = parseJsonArrayValue(values[1]?.trim() || '');
-      song.generation = parseJsonArrayValue(values[2]?.trim() || '');
-      song.type = parseJsonArrayValue(values[3]?.trim() || '');
-      song.game = parseJsonArrayValue(values[4]?.trim() || '');
-      song.character = parseJsonArrayValue(values[5]?.trim() || '');
-      song.stage = parseJsonArrayValue(values[6]?.trim() || '');
-
-      song.filePath = '';
-
-      // タイトルは配列なので、配列が空でないか、または最初の要素が存在するかをチェック
-      const hasTitle = Array.isArray(song.title) && song.title.length > 0 && song.title[0];
-      if (!song.filename || !hasTitle) {
-        console.warn(`行 ${i}: ファイル名または曲名が空のため、この行はスキップします`);
-        continue;
-      }
-
-      songData.push(song);
-
-      // 最初の数件だけ詳細ログを出力
-      if (i <= 3) {
-        console.log(`楽曲データの例 (行 ${i}):`, JSON.stringify(song));
-      }
-    }
-
-    console.log(`${songData.length}曲の情報を読み込みました。`);
-
-    if (songData.length === 0) {
-      console.error('有効な楽曲データがありません');
-      throw new Error('有効な楽曲データがありません');
-    }
+    // songUtils.jsの関数を使用してCSVをパース
+    const platform = window.electronAPI ? window.electronAPI.platform : 'win32';
+    songData = songUtils.parseSongDataFromCsv(csvContent, platform);
   } catch (error) {
-    console.error('CSVパースエラー:', error);
+    console.error('[renderer.js] CSVパースエラー:', error);
     throw new Error(`CSVパースエラー: ${error.message}`);
   }
 }
@@ -542,100 +398,12 @@ function parseSongData(csvContent) {
 // 楽曲データとファイルのマッチング
 function matchSongsWithFiles(audioFiles) {
   try {
-    console.log('[renderer.js] ファイルマッチング処理を開始します (拡張子あいまい、サブフォルダ対応)');
-    console.log(`[renderer.js] 処理対象の楽曲データ数: ${songData.length}`);
-    console.log(`[renderer.js] 検出された音声ファイル数: ${audioFiles.length}`);
-
-    // 1. 検出された音声ファイルのマップを作成
-    //    キー: 音楽ディレクトリからの相対パス（拡張子なし、小文字）
-    //    バリュー: ファイルのフルパス
-    const audioFileMap = new Map();
-    for (const fullPath of audioFiles) {
-        // 音楽ディレクトリからの相対パスを取得
-        let relativePath = fullPath;
-        if (musicDirectory && fullPath.toLowerCase().startsWith(musicDirectory.toLowerCase())) {
-            relativePath = fullPath.slice(musicDirectory.length);
-            // 先頭のパス区切り文字を削除
-            if (relativePath.startsWith('\\') || relativePath.startsWith('/')) {
-                relativePath = relativePath.slice(1);
-            }
-        }
-
-        // 拡張子を除去して小文字に変換
-        const relativePathNoExt = fileUtils.removeExtension(relativePath).toLowerCase();
-
-        if (relativePathNoExt && !audioFileMap.has(relativePathNoExt)) {
-            audioFileMap.set(relativePathNoExt, fullPath);
-        }
-    }
-
-    console.log(`[renderer.js] 音声ファイルマップ作成完了。ユニークなパス数: ${audioFileMap.size}`);
-    // マップ内容のサンプルログ（デバッグ用）
-    let logCount = 0;
-    for (const [name, path] of audioFileMap.entries()) {
-      if (logCount < 3) {
-        console.log(`  マップ例: "${name}" => "${path}"`);
-        logCount++;
-      } else break;
-    }
-
-    // 2. 楽曲データと音声ファイルマップをマッチング
-    let matchCount = 0;
-    let noMatchCount = 0;
-
-    songData.forEach((song, index) => {
-      // CSVから読み込んだファイル名は拡張子なしを前提とし、小文字に変換
-      const csvPathLower = song.filename.toLowerCase();
-
-      // デバッグログ（最初の数件と最後の数件）
-      const logDetails = index < 5 || index >= songData.length - 5;
-      if (logDetails) {
-        console.log(`[renderer.js] マッチング試行 ${index + 1}/${songData.length}: CSV Filename="${song.filename}", PathLower="${csvPathLower}"`);
-      }
-
-      // マップにCSVのパス（小文字）が存在するか確認
-      if (csvPathLower && audioFileMap.has(csvPathLower)) {
-        song.filePath = audioFileMap.get(csvPathLower); // マップからフルパスを取得
-        song.fileExists = true; // ファイルが存在することを示すフラグ
-        matchCount++;
-
-        if (logDetails) {
-          console.log(`  -> マッチ成功: Path = ${song.filePath}`);
-        }
-      } else {
-        song.filePath = ''; // マッチしなかった場合はパスをクリア
-        song.fileExists = false; // ファイルが存在しないフラグ
-        noMatchCount++;
-
-        if (logDetails && csvPathLower) {
-            console.log(`  -> マッチ失敗: パス "${csvPathLower}" のファイルが見つかりません`);
-        } else if (logDetails && !csvPathLower) {
-            console.log(`  -> マッチ失敗: CSVのファイル名からパスを取得できませんでした`);
-        }
-      }
-    });
-
-    console.log(`[renderer.js] マッチング処理完了: ${matchCount} / ${songData.length} 曲のファイルとマッチしました。`);
-    console.log(`[renderer.js] マッチしなかった曲数: ${noMatchCount}`);
-
-    // マッチしたファイルが一つもない場合のエラーハンドリング (より具体的に)
-    if (matchCount === 0 && songData.length > 0) {
-      const errorMsg = '楽曲データと音声ファイルが一つもマッチしませんでした。\n\n' +
-                       '考えられる原因:\n' +
-                       '- 音楽フォルダの指定が間違っている。\n' +
-                       '- CSVファイルの「ファイル名」列の値が、実際の音声ファイル名（拡張子を除く）と異なっている。\n' +
-                       '- CSVファイルの内容が空、または形式が正しくない。\n' +
-                       '- 音楽フォルダ内に対応する音声ファイルが存在しない。\n\n' +
-                       '設定とファイルを確認してください。';
-      console.error('[renderer.js] ' + errorMsg.replace(/\n/g, ' '));
-      alert(errorMsg);
-      // 必要であれば、ここで処理を中断するなどの対応を追加
-      // 例: return false; や throw new Error(...);
-    }
+    // songUtils.jsの関数を使用してファイルマッチングを実行
+    songData = songUtils.matchSongsWithFiles(songData, audioFiles, musicDirectory);
   } catch (error) {
     console.error('[renderer.js] ファイルマッチングエラー:', error);
     alert(`ファイルのマッチング処理中にエラーが発生しました: ${error.message}`);
-    throw new Error(`ファイルマッチングエラー: ${error.message}`); // エラーを再スローして startApplication で捕捉可能にする
+    throw new Error(`ファイルマッチングエラー: ${error.message}`);
   }
 }
 
@@ -922,54 +690,13 @@ function filterSongsInternal() {
   const selectedGames = getSelectedCheckboxValues('gameFilter');
   const selectedStages = getSelectedCheckboxValues('stageFilter');
 
-  return songData.filter(song => {
-    // 1. テキスト検索 (AND検索) - titleとcharacterのみに限定
-    // titleとcharacterは配列の可能性があるため、配列の全要素を検索対象にする
-    let keywordMatch = true;
-    if (keywords.length > 0) {
-      keywordMatch = keywords.every(keyword => {
-        // 配列を平坦化して検索対象フィールドのリストを作成
-        const titleArray = Array.isArray(song.title) ? song.title : [song.title];
-        const characterArray = Array.isArray(song.character) ? song.character : [song.character];
-        const searchFields = [...titleArray, ...characterArray];
-
-        return searchFields.some(field =>
-          field && typeof field === 'string' && field.toLowerCase().includes(keyword)
-        );
-      });
-    }
-    if (!keywordMatch) return false;
-
-    // 2. タイプフィルター (カテゴリ内でOR、未選択ならそのカテゴリは無視)
-    // 全ての属性は配列の可能性があるため、配列として扱う
-    if (selectedTypes.length > 0) {
-      const typeArray = Array.isArray(song.type) ? song.type : [song.type];
-      const hasMatch = typeArray.some(type => selectedTypes.includes(type));
-      if (!hasMatch) return false;
-    }
-
-    // 3. シリーズ区分フィルター
-    if (selectedGenerations.length > 0) {
-      const generationArray = Array.isArray(song.generation) ? song.generation : [song.generation];
-      const hasMatch = generationArray.some(gen => selectedGenerations.includes(gen));
-      if (!hasMatch) return false;
-    }
-
-    // 4. 作品名フィルター
-    if (selectedGames.length > 0) {
-      const gameArray = Array.isArray(song.game) ? song.game : [song.game];
-      const hasMatch = gameArray.some(game => selectedGames.includes(game));
-      if (!hasMatch) return false;
-    }
-
-    // 5. ステージ・場面フィルター
-    if (selectedStages.length > 0) {
-      const stageArray = Array.isArray(song.stage) ? song.stage : [song.stage];
-      const hasMatch = stageArray.some(stage => selectedStages.includes(stage));
-      if (!hasMatch) return false;
-    }
-
-    return true; // 全てのフィルター条件を通過
+  // songUtils.jsの関数を使用してフィルタリング
+  return songUtils.filterSongs(songData, {
+    keywords: keywords,
+    types: selectedTypes,
+    generations: selectedGenerations,
+    games: selectedGames,
+    stages: selectedStages
   });
 }
 
@@ -1662,38 +1389,13 @@ function filterQuizSongsInternal() {
   const selectedGames = getSelectedQuizCheckboxValues('quizGameFilter');
   const selectedStages = getSelectedQuizCheckboxValues('quizStageFilter');
 
-  return songData.filter(song => {
-    // 全ての属性は配列の可能性があるため、配列として扱う
-
-    // 1. タイプフィルター (カテゴリ内でOR、未選択ならそのカテゴリは無視)
-    if (selectedTypes.length > 0) {
-      const typeArray = Array.isArray(song.type) ? song.type : [song.type];
-      const hasMatch = typeArray.some(type => selectedTypes.includes(type));
-      if (!hasMatch) return false;
-    }
-
-    // 2. シリーズ区分フィルター
-    if (selectedGenerations.length > 0) {
-      const generationArray = Array.isArray(song.generation) ? song.generation : [song.generation];
-      const hasMatch = generationArray.some(gen => selectedGenerations.includes(gen));
-      if (!hasMatch) return false;
-    }
-
-    // 3. 作品名フィルター
-    if (selectedGames.length > 0) {
-      const gameArray = Array.isArray(song.game) ? song.game : [song.game];
-      const hasMatch = gameArray.some(game => selectedGames.includes(game));
-      if (!hasMatch) return false;
-    }
-
-    // 4. ステージ・場面フィルター
-    if (selectedStages.length > 0) {
-      const stageArray = Array.isArray(song.stage) ? song.stage : [song.stage];
-      const hasMatch = stageArray.some(stage => selectedStages.includes(stage));
-      if (!hasMatch) return false;
-    }
-
-    return true; // 全てのフィルター条件を通過
+  // songUtils.jsの関数を使用してフィルタリング（演習モードはキーワード検索なし）
+  return songUtils.filterSongs(songData, {
+    keywords: [],
+    types: selectedTypes,
+    generations: selectedGenerations,
+    games: selectedGames,
+    stages: selectedStages
   });
 }
 
