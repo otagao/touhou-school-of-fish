@@ -1,0 +1,54 @@
+version: 2
+updates:
+  # npm パッケージの更新
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+      timezone: "Asia/Tokyo"
+    # セキュリティアップデートを優先
+    open-pull-requests-limit: 10
+    # プルリクエストのラベル設定
+    labels:
+      - "dependencies"
+      - "automated"
+    # コミットメッセージのプレフィックス（CLAUDE.mdの方針に準拠）
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    # セキュリティアップデートの優先処理
+    allow:
+      - dependency-type: "all"
+    # バージョニングストラテジー
+    versioning-strategy: "auto"
+    # グループ化設定（関連する依存関係を1つのPRにまとめる）
+    groups:
+      # Electron関連は一緒に更新
+      electron:
+        patterns:
+          - "electron"
+          - "electron-builder"
+      # 開発ツール
+      dev-tools:
+        patterns:
+          - "license-checker"
+          - "generate-license-file"
+
+  # GitHub Actionsの更新
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+      timezone: "Asia/Tokyo"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore"
+    # GitHub Actions は比較的安全なので、より積極的に更新
+    open-pull-requests-limit: 5

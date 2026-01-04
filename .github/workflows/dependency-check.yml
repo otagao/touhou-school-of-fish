@@ -1,0 +1,114 @@
+name: Dependency Check
+
+on:
+  # 週次実行（日曜 23:00 JST = UTC 14:00）
+  schedule:
+    - cron: '0 14 * * 0'
+
+  # 手動実行も可能
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Node.jsセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: 依存関係インストール
+        run: npm ci
+
+      # アップデート可能なパッケージのチェック
+      - name: npm outdated チェック
+        id: outdated
+        run: |
+          echo "## 📦 アップデート可能なパッケージ" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if npm outdated --long > outdated.txt 2>&1; then
+            echo "✅ すべての依存関係が最新です" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "以下のパッケージにアップデートがあります:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat outdated.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+
+      # セキュリティ脆弱性のチェック
+      - name: npm audit チェック
+        id: audit
+        run: |
+          echo "## 🔒 セキュリティ脆弱性チェック" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if npm audit --json > audit.json 2>&1; then
+            echo "✅ 既知の脆弱性は見つかりませんでした" >> $GITHUB_STEP_SUMMARY
+          else
+            # 脆弱性が見つかった場合
+            echo "⚠️ セキュリティ脆弱性が見つかりました:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # 脆弱性のサマリーを表示
+            npm audit --audit-level=none || true
+            npm audit >> $GITHUB_STEP_SUMMARY || true
+
+            # 高リスク以上の脆弱性がある場合は警告
+            HIGH_COUNT=$(jq -r '.metadata.vulnerabilities.high // 0' audit.json)
+            CRITICAL_COUNT=$(jq -r '.metadata.vulnerabilities.critical // 0' audit.json)
+
+            if [ "$HIGH_COUNT" -gt 0 ] || [ "$CRITICAL_COUNT" -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ **警告**: 高リスク以上の脆弱性が見つかりました（高: $HIGH_COUNT, 危険: $CRITICAL_COUNT）" >> $GITHUB_STEP_SUMMARY
+              echo "速やかに対応してください。" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+
+      # 依存関係の統計情報
+      - name: 依存関係の統計
+        run: |
+          echo "## 📊 依存関係の統計" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # package.json から依存関係の数を取得
+          DEPS_COUNT=$(jq -r '.dependencies | length' package.json)
+          DEVDEPS_COUNT=$(jq -r '.devDependencies | length' package.json)
+
+          echo "- **dependencies**: $DEPS_COUNT 個" >> $GITHUB_STEP_SUMMARY
+          echo "- **devDependencies**: $DEVDEPS_COUNT 個" >> $GITHUB_STEP_SUMMARY
+          echo "- **合計**: $((DEPS_COUNT + DEVDEPS_COUNT)) 個" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      # lockfileの整合性チェック
+      - name: lockfile 整合性チェック
+        run: |
+          echo "## 🔐 lockfile 整合性チェック" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if npm ci --dry-run > /dev/null 2>&1; then
+            echo "✅ package-lock.json は正常です" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ package-lock.json に問題があります" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      # 最終更新日時
+      - name: レポート生成日時
+        run: |
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📅 **レポート生成日時**: $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S JST')" >> $GITHUB_STEP_SUMMARY

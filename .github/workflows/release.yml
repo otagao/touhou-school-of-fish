@@ -29,6 +29,10 @@ jobs:
       - name: ライセンスチェック
         run: npm run license-check
 
+      - name: npm audit（セキュリティ脆弱性チェック）
+        run: npm audit --audit-level=high
+        continue-on-error: false
+
       - name: サードパーティライセンス生成
         run: npm run generate-licenses
 
@@ -66,6 +70,14 @@ jobs:
 
       - name: 依存関係インストール
         run: npm ci
+
+      - name: lockfile 整合性チェック
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "エラー: package-lock.json が存在しません"
+            exit 1
+          fi
+          npm ci --dry-run
 
       - name: バージョン整合性チェック
         shell: bash
