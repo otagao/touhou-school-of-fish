@@ -17,12 +17,12 @@
   "devDependencies": {
     "electron": "^39.2.7",
     "electron-builder": "^26.0.12",
-    "generate-license-file": "^3.0.0",
+    "generate-license-file": "^4.1.1",
     "license-checker": "^25.0.1"
   },
   "dependencies": {
-    "howler": "^2.2.3",
-    "papaparse": "^5.4.0"
+    "howler": "^2.2.4",
+    "papaparse": "^5.5.3"
   },
   "build": {
     "appId": "com.otagao.touhouschooloffish",
