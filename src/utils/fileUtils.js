@@ -56,26 +56,59 @@ function getFileExtension(filename) {
    */
   function validateCsvFormat(content) {
     if (!content || typeof content !== 'string') return false;
-    
+
     // 最低限の行数と列数をチェック
     const lines = content.split('\n').filter(line => line.trim());
     if (lines.length < 2) return false; // ヘッダー + 少なくとも1行のデータ
-    
+
     // ヘッダー行を解析
     const headers = lines[0].split(',');
     if (headers.length < 3) return false; // 最低限必要なカラム数
-    
+
     // ヘッダーの内容をチェックすることもできる
     // return headers.includes('曲名') && headers.includes('ファイル名'); など
-    
+
     return true;
   }
-  
+
+  /**
+   * ファイルパスから拡張子のみを除去（ディレクトリ構造は保持）
+   * @param {string} filePath ファイルパス
+   * @returns {string} 拡張子を除いたファイルパス
+   */
+  function removeExtension(filePath) {
+    if (!filePath) return '';
+    const lastDotIndex = filePath.lastIndexOf('.');
+    const lastSepIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+
+    // ドットがパス区切り文字より後にある場合のみ拡張子として扱う
+    if (lastDotIndex > lastSepIndex && lastDotIndex > 0) {
+      return filePath.slice(0, lastDotIndex);
+    }
+    return filePath;
+  }
+
+  /**
+   * パスをOSに合わせて正規化
+   * @param {string} path パス
+   * @param {string} platform プラットフォーム ('win32' | 'darwin' | 'linux')
+   * @returns {string} 正規化されたパス
+   */
+  function normalizePath(path, platform = 'win32') {
+    if (!path) return '';
+    if (platform === 'win32') {
+      return path.replace(/\//g, '\\');
+    }
+    return path.replace(/\\/g, '/');
+  }
+
   // エクスポート
   module.exports = {
     getFileExtension,
     getBaseName,
     getFileName,
     isMatchingExtension,
-    validateCsvFormat
+    validateCsvFormat,
+    removeExtension,
+    normalizePath
   };
