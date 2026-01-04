@@ -176,7 +176,7 @@ jobs:
               echo "### ✨ 新機能"
               echo ""
               grep "^FEATURE" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
-                echo "- ${message#*: } (\`$hash\`)"
+                echo "- ${message#*: } ([\`$hash\`](https://github.com/${{ github.repository }}/commit/$hash))"
               done
               echo ""
             fi
@@ -186,7 +186,7 @@ jobs:
               echo "### 🐛 バグ修正"
               echo ""
               grep "^FIX" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
-                echo "- ${message#*: } (\`$hash\`)"
+                echo "- ${message#*: } ([\`$hash\`](https://github.com/${{ github.repository }}/commit/$hash))"
               done
               echo ""
             fi
@@ -196,7 +196,7 @@ jobs:
               echo "### 📝 ドキュメント"
               echo ""
               grep "^DOCS" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
-                echo "- ${message#*: } (\`$hash\`)"
+                echo "- ${message#*: } ([\`$hash\`](https://github.com/${{ github.repository }}/commit/$hash))"
               done
               echo ""
             fi
@@ -206,7 +206,7 @@ jobs:
               echo "### ⚡ パフォーマンス改善"
               echo ""
               grep "^PERF" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
-                echo "- ${message#*: } (\`$hash\`)"
+                echo "- ${message#*: } ([\`$hash\`](https://github.com/${{ github.repository }}/commit/$hash))"
               done
               echo ""
             fi
@@ -216,7 +216,7 @@ jobs:
               echo "### 🎨 リファクタリング"
               echo ""
               grep "^REFACTOR" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
-                echo "- ${message#*: } (\`$hash\`)"
+                echo "- ${message#*: } ([\`$hash\`](https://github.com/${{ github.repository }}/commit/$hash))"
               done
               echo ""
             fi
@@ -226,7 +226,7 @@ jobs:
               echo "### 🔧 メンテナンス"
               echo ""
               grep "^CHORE" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
-                echo "- ${message#*: } (\`$hash\`)"
+                echo "- ${message#*: } ([\`$hash\`](https://github.com/${{ github.repository }}/commit/$hash))"
               done
               echo ""
             fi
@@ -236,7 +236,7 @@ jobs:
               echo "### 🚀 ビルド・リリース"
               echo ""
               grep "^BUILD" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
-                echo "- ${message#*: } (\`$hash\`)"
+                echo "- ${message#*: } ([\`$hash\`](https://github.com/${{ github.repository }}/commit/$hash))"
               done
               echo ""
             fi
@@ -246,7 +246,7 @@ jobs:
               echo "### 🔄 その他の変更"
               echo ""
               grep "^OTHER" /tmp/commits.txt | while IFS=$'\t' read -r _ message hash; do
-                echo "- $message (\`$hash\`)"
+                echo "- $message ([\`$hash\`](https://github.com/${{ github.repository }}/commit/$hash))"
               done
               echo ""
             fi
