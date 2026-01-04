@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: チェックアウト
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Node.jsセットアップ
         uses: actions/setup-node@v4
@@ -55,7 +55,7 @@ jobs:
 
     steps:
       - name: チェックアウト
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Node.jsセットアップ
         uses: actions/setup-node@v4
@@ -110,7 +110,7 @@ jobs:
 
     steps:
       - name: チェックアウト
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # 全履歴を取得してタグ間の比較を可能にする
 
