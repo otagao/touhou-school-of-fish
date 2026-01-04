@@ -64,7 +64,7 @@ jobs:
           cache: 'npm'
 
       - name: ライセンスファイルダウンロード
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: license-files
 
@@ -115,7 +115,7 @@ jobs:
           fetch-depth: 0  # 全履歴を取得してタグ間の比較を可能にする
 
       - name: 全ビルド成果物ダウンロード
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
 
