@@ -5,6 +5,7 @@ const songUtils = require('./utils/songUtils.js');
 // モードのインポート
 const { ListeningMode } = require('./modes/listening-mode.js');
 const { QuizMode } = require('./modes/quiz-mode.js');
+const { SettingsMode } = require('./modes/settings-mode.js');
 
 // グローバル変数
 let musicDirectory = '';
@@ -15,6 +16,7 @@ let isMusicDirSet = false;
 // モードインスタンス
 let listeningMode = null;
 let quizMode = null;
+let settingsMode = null;
 
 
 // DOMが読み込まれたら実行
@@ -28,11 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('listeningModeBtn').addEventListener('click', () => switchMode('listeningMode'));
   document.getElementById('quizModeBtn').addEventListener('click', () => switchMode('quizMode'));
   document.getElementById('settingsBtn').addEventListener('click', () => switchMode('settings'));
-
-  // 設定画面のイベントリスナー
-  document.getElementById('selectMusicDirSettings').addEventListener('click', selectMusicDirectorySettings);
-  document.getElementById('selectCsvFileSettings').addEventListener('click', selectCsvFileSettings);
-  document.getElementById('applySettingsBtn').addEventListener('click', applySettings);
 });
 
 // ディレクトリ選択処理
@@ -136,9 +133,6 @@ async function startApplication() {
     console.log('[renderer.js] 聴取モードを表示します');
     switchMode('listeningMode'); // デフォルトで聴取モードを表示
 
-    // 設定画面の値を更新
-    document.getElementById('musicDirPathSettings').value = musicDirectory; // 空の場合もある
-    document.getElementById('csvFilePathSettings').value = csvFilePath;
     console.log('[renderer.js] アプリケーション開始処理が完了しました');
 
   } catch (error) {
@@ -199,6 +193,12 @@ function switchMode(mode) {
     quizMode = null;
   }
 
+  // 設定モードのクリーンアップ
+  if (settingsMode && mode !== 'settings') {
+    settingsMode.cleanup();
+    settingsMode = null;
+  }
+
   // 選択されたモードを表示
   if (mode === 'listeningMode') {
     document.getElementById('listeningModePanel').classList.remove('hidden');
@@ -212,53 +212,16 @@ function switchMode(mode) {
     quizMode.initialize();
   } else if (mode === 'settings') {
     document.getElementById('settingsPanel').classList.remove('hidden');
+    // SettingsModeを初期化
+    settingsMode = new SettingsMode(musicDirectory, csvFilePath, handleApplySettings);
+    settingsMode.initialize();
   }
 }
 
-// 設定画面でのディレクトリ選択
-async function selectMusicDirectorySettings() {
-  const dirPath = await window.electronAPI.openDirectoryDialog();
-  if (dirPath) {
-    document.getElementById('musicDirPathSettings').value = dirPath;
-  }
-}
-
-// 設定画面でのCSVファイル選択
-async function selectCsvFileSettings() {
-  const filePath = await window.electronAPI.openFileDialog({
-    filters: [{ name: 'CSV Files', extensions: ['csv'] }]
-  });
-  if (filePath) {
-    document.getElementById('csvFilePathSettings').value = filePath;
-  }
-}
-
-// 設定を適用
-function applySettings() {
-  const newMusicDir = document.getElementById('musicDirPathSettings').value;
-  const newCsvPath = document.getElementById('csvFilePathSettings').value;
-  
-  let settingsChanged = false;
-  
-  // 音楽ディレクトリが変更された場合
-  if (newMusicDir !== musicDirectory) {
-    musicDirectory = newMusicDir;
-    settingsChanged = true;
-  }
-  
-  // CSVファイルが変更された場合
-  if (newCsvPath !== csvFilePath) {
-    csvFilePath = newCsvPath;
-    settingsChanged = true;
-  }
-  
-  // 設定が変更された場合、アプリケーションを再起動する必要があることを通知
-  if (settingsChanged) {
-    if (confirm('設定を変更するにはアプリケーションを再起動する必要があります。再起動しますか？')) {
-      startApplication();
-    }
-  } else {
-    alert('設定に変更はありませんでした。');
-  }
+// 設定適用時のコールバック関数
+function handleApplySettings(newMusicDir, newCsvPath) {
+  musicDirectory = newMusicDir;
+  csvFilePath = newCsvPath;
+  startApplication();
 }
 
