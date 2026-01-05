@@ -1,7 +1,7 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { ipcRenderer } = require('electron');
 
-// レンダラープロセスに公開するAPIを定義
-contextBridge.exposeInMainWorld('electronAPI', {
+// contextIsolation: false のため、windowオブジェクトに直接公開
+window.electronAPI = {
   // プラットフォーム情報を取得
   platform: process.platform,
 
@@ -37,4 +37,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ウィンドウにフォーカスを設定
   focusWindow: () => ipcRenderer.invoke('focus-window')
-});
+};

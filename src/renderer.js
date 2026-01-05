@@ -695,6 +695,17 @@ function applySettings() {
 }
 
 /**
+ * 指定された属性のユニークな値を取得する（フィルターオプション用）
+ * @param {string} attribute 楽曲オブジェクトの属性名
+ * @param {string[]} predefinedValues 事前定義された値の配列（データに無くても表示したい場合）
+ * @returns {string[]} ソート済みのユニークな値の配列
+ */
+function getUniqueValuesForFilter(attribute, predefinedValues = []) {
+  // songUtils.jsの関数を使用
+  return songUtils.getUniqueAttributes(songData, attribute, predefinedValues);
+}
+
+/**
  * 演習モード用のフィルターコントロール（チェックボックス）を描画する
  */
 function renderQuizFilterControls() {
