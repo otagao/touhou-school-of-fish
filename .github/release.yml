@@ -24,7 +24,7 @@ changelog:
         - 'chore'
         - 'dependencies'
       commits:
-        title_pattern: '^chore:'
+        title_pattern: '^chore(\(.+\))?:'
     - title: '⚡ パフォーマンス改善'
       labels:
         - 'performance'
