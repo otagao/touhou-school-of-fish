@@ -1,5 +1,6 @@
 // quiz-mode.js - 演習モードの管理
 const songUtils = require('../utils/songUtils.js');
+const { FilterControls } = require('../components/filter-controls.js');
 
 /**
  * 演習モードを管理するクラス
@@ -139,65 +140,10 @@ class QuizMode {
     const games = songUtils.getUniqueAttributes(this.songData, 'game');
     const stages = songUtils.getUniqueAttributes(this.songData, 'stage');
 
-    this.createCheckboxesForQuizGroup(types, typeContainer, 'quizTypeFilter');
-    this.createCheckboxesForQuizGroup(generations, generationContainer, 'quizGenerationFilter');
-    this.createCheckboxesForQuizGroup(games, gameContainer, 'quizGameFilter');
-    this.createCheckboxesForQuizGroup(stages, stageContainer, 'quizStageFilter');
-  }
-
-  /**
-   * 演習モード用：指定された値の配列からチェックボックス群を作成し、コンテナに追加する
-   * @param {string[]} values チェックボックスにする値の配列
-   * @param {HTMLElement} container チェックボックスを追加する親要素
-   * @param {string} groupName チェックボックスグループの名前 (inputのname属性)
-   */
-  createCheckboxesForQuizGroup(values, container, groupName) {
-    if (values.length === 0) {
-      container.innerHTML = '<p class="no-filter-options">該当データなし</p>';
-      return;
-    }
-    values.forEach((value, index) => {
-      // ユニークなIDを生成（インデックスを含めることで重複を防ぐ）
-      const checkboxId = `${groupName}-${index}-${value.replace(/[^a-zA-Z0-9]/g, '-')}`;
-
-      const label = document.createElement('label');
-      label.className = 'checkbox-label';
-
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.id = checkboxId;
-      checkbox.name = groupName;
-      checkbox.value = value;
-      checkbox.addEventListener('change', () => this.updateQuizSongCounts());
-
-      // ラベルにinput要素を最初に追加し、その後にテキストを追加
-      label.appendChild(checkbox);
-      label.appendChild(document.createTextNode(value));
-
-      // ラベル自体にクリックイベントを追加して確実に動作させる
-      label.addEventListener('click', (e) => {
-        // チェックボックス自体がクリックされた場合は何もしない（ブラウザの標準動作に任せる）
-        if (e.target === checkbox) {
-          return;
-        }
-        // ラベルテキスト部分がクリックされた場合
-        e.preventDefault();
-        checkbox.checked = !checkbox.checked;
-        checkbox.dispatchEvent(new Event('change'));
-      });
-
-      container.appendChild(label);
-    });
-  }
-
-  /**
-   * 演習モード用：選択されたチェックボックスの値を取得するヘルパー
-   * @param {string} groupName チェックボックスのname属性
-   * @returns {string[]} 選択された値の配列
-   */
-  getSelectedQuizCheckboxValues(groupName) {
-    const checkboxes = document.querySelectorAll(`input[name="${groupName}"]:checked`);
-    return Array.from(checkboxes).map(cb => cb.value);
+    FilterControls.createCheckboxesForGroup(types, typeContainer, 'quizTypeFilter', () => this.updateQuizSongCounts());
+    FilterControls.createCheckboxesForGroup(generations, generationContainer, 'quizGenerationFilter', () => this.updateQuizSongCounts());
+    FilterControls.createCheckboxesForGroup(games, gameContainer, 'quizGameFilter', () => this.updateQuizSongCounts());
+    FilterControls.createCheckboxesForGroup(stages, stageContainer, 'quizStageFilter', () => this.updateQuizSongCounts());
   }
 
   /**
@@ -206,10 +152,10 @@ class QuizMode {
    */
   filterQuizSongsInternal() {
     // チェックボックスから選択された値を取得
-    const selectedTypes = this.getSelectedQuizCheckboxValues('quizTypeFilter');
-    const selectedGenerations = this.getSelectedQuizCheckboxValues('quizGenerationFilter');
-    const selectedGames = this.getSelectedQuizCheckboxValues('quizGameFilter');
-    const selectedStages = this.getSelectedQuizCheckboxValues('quizStageFilter');
+    const selectedTypes = FilterControls.getSelectedCheckboxValues('quizTypeFilter');
+    const selectedGenerations = FilterControls.getSelectedCheckboxValues('quizGenerationFilter');
+    const selectedGames = FilterControls.getSelectedCheckboxValues('quizGameFilter');
+    const selectedStages = FilterControls.getSelectedCheckboxValues('quizStageFilter');
 
     // songUtils.jsの関数を使用してフィルタリング（演習モードはキーワード検索なし）
     return songUtils.filterSongs(this.songData, {

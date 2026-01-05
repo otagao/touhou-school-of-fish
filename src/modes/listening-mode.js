@@ -1,5 +1,6 @@
 // listening-mode.js - 聴取モードの管理
 const songUtils = require('../utils/songUtils.js');
+const { FilterControls } = require('../components/filter-controls.js');
 
 /**
  * 聴取モードを管理するクラス
@@ -90,51 +91,10 @@ class ListeningMode {
     const games = songUtils.getUniqueAttributes(this.songData, 'game');
     const stages = songUtils.getUniqueAttributes(this.songData, 'stage');
 
-    this.createCheckboxesForGroup(types, typeContainer, 'typeFilter');
-    this.createCheckboxesForGroup(generations, generationContainer, 'generationFilter');
-    this.createCheckboxesForGroup(games, gameContainer, 'gameFilter');
-    this.createCheckboxesForGroup(stages, stageContainer, 'stageFilter');
-  }
-
-  /**
-   * 指定された値の配列からチェックボックス群を作成し、コンテナに追加する
-   * @param {string[]} values チェックボックスにする値の配列
-   * @param {HTMLElement} container チェックボックスを追加する親要素
-   * @param {string} groupName チェックボックスグループの名前 (inputのname属性)
-   */
-  createCheckboxesForGroup(values, container, groupName) {
-    if (values.length === 0) {
-      container.innerHTML = '<p class="no-filter-options">該当データなし</p>';
-      return;
-    }
-    values.forEach((value, index) => {
-      const checkboxId = `${groupName}-${index}-${value.replace(/[^a-zA-Z0-9]/g, '-')}`;
-
-      const label = document.createElement('label');
-      label.className = 'checkbox-label';
-
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.id = checkboxId;
-      checkbox.name = groupName;
-      checkbox.value = value;
-      checkbox.addEventListener('change', () => this.filterSongs());
-
-      label.appendChild(checkbox);
-      label.appendChild(document.createTextNode(value));
-
-      // ラベルクリックイベント
-      label.addEventListener('click', (e) => {
-        if (e.target === checkbox) {
-          return;
-        }
-        e.preventDefault();
-        checkbox.checked = !checkbox.checked;
-        checkbox.dispatchEvent(new Event('change'));
-      });
-
-      container.appendChild(label);
-    });
+    FilterControls.createCheckboxesForGroup(types, typeContainer, 'typeFilter', () => this.filterSongs());
+    FilterControls.createCheckboxesForGroup(generations, generationContainer, 'generationFilter', () => this.filterSongs());
+    FilterControls.createCheckboxesForGroup(games, gameContainer, 'gameFilter', () => this.filterSongs());
+    FilterControls.createCheckboxesForGroup(stages, stageContainer, 'stageFilter', () => this.filterSongs());
   }
 
   /**
@@ -423,10 +383,10 @@ class ListeningMode {
     const keywords = searchTermInput.toLowerCase().split(' ').filter(k => k.trim() !== '');
 
     // チェックボックスから選択された値を取得
-    const selectedTypes = this.getSelectedCheckboxValues('typeFilter');
-    const selectedGenerations = this.getSelectedCheckboxValues('generationFilter');
-    const selectedGames = this.getSelectedCheckboxValues('gameFilter');
-    const selectedStages = this.getSelectedCheckboxValues('stageFilter');
+    const selectedTypes = FilterControls.getSelectedCheckboxValues('typeFilter');
+    const selectedGenerations = FilterControls.getSelectedCheckboxValues('generationFilter');
+    const selectedGames = FilterControls.getSelectedCheckboxValues('gameFilter');
+    const selectedStages = FilterControls.getSelectedCheckboxValues('stageFilter');
 
     // songUtils.jsの関数を使用してフィルタリング
     return songUtils.filterSongs(this.songData, {
@@ -439,29 +399,10 @@ class ListeningMode {
   }
 
   /**
-   * 選択されたチェックボックスの値を取得する
-   * @param {string} groupName チェックボックスのname属性
-   * @returns {string[]} 選択された値の配列
-   */
-  getSelectedCheckboxValues(groupName) {
-    const checkboxes = document.querySelectorAll(`input[name="${groupName}"]:checked`);
-    return Array.from(checkboxes).map(cb => cb.value);
-  }
-
-  /**
    * フィルターの折りたたみ切り替え
    */
   toggleFilters() {
-    const filterContainer = document.getElementById('filterControlsContainer');
-    const toggleButton = document.getElementById('toggleFilters');
-
-    if (filterContainer.classList.contains('hidden')) {
-      filterContainer.classList.remove('hidden');
-      toggleButton.textContent = '詳細絞り込み ▲';
-    } else {
-      filterContainer.classList.add('hidden');
-      toggleButton.textContent = '詳細絞り込み ▼';
-    }
+    FilterControls.toggleFilterContainer('filterControlsContainer', 'toggleFilters');
   }
 
   /**
