@@ -72,6 +72,7 @@ jobs:
         run: npm ci
 
       - name: lockfile 整合性チェック
+        shell: bash
         run: |
           if [ ! -f package-lock.json ]; then
             echo "エラー: package-lock.json が存在しません"
