@@ -156,26 +156,31 @@ jobs:
             # コミットログをカテゴリ別に分類
             git log ${PREVIOUS_TAG}..${CURRENT_TAG} --pretty=format:"%s	%h" > /tmp/raw_commits.txt
             while IFS=$'\t' read -r message hash; do
+              # マージコミットをスキップ
+              if [[ "$message" =~ ^Merge\ (pull\ request|branch) ]]; then
+                continue
+              fi
+
               case "$message" in
-                feat:*|feature:*|add:*)
+                feat:*|feat\(*|feature:*|feature\(*|add:*|add\(*)
                   echo "FEATURE	$message	$hash"
                   ;;
-                fix:*)
+                fix:*|fix\(*)
                   echo "FIX	$message	$hash"
                   ;;
-                docs:*)
+                docs:*|docs\(*|doc:*|doc\(*)
                   echo "DOCS	$message	$hash"
                   ;;
-                chore:*)
+                chore:*|chore\(*)
                   echo "CHORE	$message	$hash"
                   ;;
-                perf:*)
+                perf:*|perf\(*)
                   echo "PERF	$message	$hash"
                   ;;
-                refactor:*)
+                refactor:*|refactor\(*)
                   echo "REFACTOR	$message	$hash"
                   ;;
-                build:*|release:*)
+                build:*|build\(*|release:*|release\(*)
                   echo "BUILD	$message	$hash"
                   ;;
                 *)
