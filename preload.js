@@ -6,7 +6,7 @@ window.electronAPI = {
   platform: process.platform,
 
   // ディレクトリ選択ダイアログを開く
-  openDirectoryDialog: () => ipcRenderer.invoke('open-directory-dialog'),
+  openDirectoryDialog: (options) => ipcRenderer.invoke('open-directory-dialog', options),
 
   // ファイル選択ダイアログを開く
   openFileDialog: (options) => ipcRenderer.invoke('open-file-dialog', options),

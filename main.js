@@ -48,19 +48,39 @@ app.on('window-all-closed', () => {
 
 // IPC通信のハンドラー
 // ディレクトリ選択ダイアログを開く
-ipcMain.handle('open-directory-dialog', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+ipcMain.handle('open-directory-dialog', async (event, options) => {
+  console.log('[main.js] open-directory-dialog 受信。options:', options);
+
+  const dialogOptions = {
     properties: ['openDirectory']
-  });
+  };
+
+  // defaultPathが指定されていれば設定
+  // Windowsのフォルダ選択ダイアログは、指定したフォルダの親ディレクトリを開くため
+  // 指定されたパスをそのまま使用する（ユーザーが前回選択したフォルダが選択状態で表示される）
+  if (options?.defaultPath) {
+    dialogOptions.defaultPath = options.defaultPath;
+    console.log('[main.js] defaultPath を設定:', options.defaultPath);
+  }
+
+  const result = await dialog.showOpenDialog(mainWindow, dialogOptions);
+  console.log('[main.js] ダイアログ結果:', result.filePaths[0]);
   return result.filePaths[0];
 });
 
 // ファイル選択ダイアログを開く
 ipcMain.handle('open-file-dialog', async (event, options) => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+  const dialogOptions = {
     properties: ['openFile'],
     filters: options?.filters || [{ name: 'CSV Files', extensions: ['csv'] }]
-  });
+  };
+
+  // defaultPathが指定されていれば設定
+  if (options?.defaultPath) {
+    dialogOptions.defaultPath = options.defaultPath;
+  }
+
+  const result = await dialog.showOpenDialog(mainWindow, dialogOptions);
   return result.filePaths[0];
 });
 

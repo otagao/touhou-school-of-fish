@@ -79,9 +79,21 @@ class SettingsMode {
    * 設定画面でのディレクトリ選択
    */
   async selectMusicDirectorySettings() {
-    const dirPath = await window.electronAPI.openDirectoryDialog();
+    // 前回の選択位置を取得（存在しなければ現在の音楽ディレクトリを使用）
+    const lastMusicDirPath = localStorage.getItem('lastMusicDirectoryPath') || this.musicDirectory;
+    console.log('[SettingsMode] ディレクトリダイアログを開きます。defaultPath:', lastMusicDirPath);
+
+    const dirPath = await window.electronAPI.openDirectoryDialog({
+      defaultPath: lastMusicDirPath || undefined
+    });
+
+    console.log('[SettingsMode] 選択されたディレクトリ:', dirPath);
+
     if (dirPath) {
       document.getElementById('musicDirPathSettings').value = dirPath;
+      // 選択したディレクトリパスをlocalStorageに保存
+      localStorage.setItem('lastMusicDirectoryPath', dirPath);
+      console.log('[SettingsMode] localStorageに保存:', dirPath);
     }
   }
 
@@ -89,11 +101,18 @@ class SettingsMode {
    * 設定画面でのCSVファイル選択
    */
   async selectCsvFileSettings() {
+    // 前回の選択位置を取得（存在しなければ現在のCSVファイルパスを使用）
+    const lastCsvFilePath = localStorage.getItem('lastCsvFilePath') || this.csvFilePath;
+
     const filePath = await window.electronAPI.openFileDialog({
-      filters: [{ name: 'CSV Files', extensions: ['csv'] }]
+      filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+      defaultPath: lastCsvFilePath
     });
+
     if (filePath) {
       document.getElementById('csvFilePathSettings').value = filePath;
+      // 選択したCSVファイルパスをlocalStorageに保存
+      localStorage.setItem('lastCsvFilePath', filePath);
     }
   }
 

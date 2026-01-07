@@ -46,22 +46,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ディレクトリ選択処理
 async function selectMusicDirectory() {
-  const dirPath = await window.electronAPI.openDirectoryDialog();
+  // 前回の選択位置を取得（存在しなければ現在の音楽ディレクトリを使用）
+  const lastMusicDirPath = localStorage.getItem('lastMusicDirectoryPath') || musicDirectory;
+  console.log('[renderer.js] ディレクトリダイアログを開きます。defaultPath:', lastMusicDirPath);
+
+  const dirPath = await window.electronAPI.openDirectoryDialog({
+    defaultPath: lastMusicDirPath || undefined
+  });
+
+  console.log('[renderer.js] 選択されたディレクトリ:', dirPath);
+
   if (dirPath) {
     musicDirectory = dirPath;
     document.getElementById('musicDirPath').value = dirPath;
+    // 選択したディレクトリパスをlocalStorageに保存
+    localStorage.setItem('lastMusicDirectoryPath', dirPath);
+    console.log('[renderer.js] localStorageに保存:', dirPath);
     checkStartConditions();
   }
 }
 
 // CSVファイル選択処理
 async function selectCsvFile() {
+  // 前回の選択位置を取得（存在しなければ現在のCSVファイルパスを使用）
+  const lastCsvFilePath = localStorage.getItem('lastCsvFilePath') || csvFilePath;
+
   const filePath = await window.electronAPI.openFileDialog({
-    filters: [{ name: 'CSV Files', extensions: ['csv'] }]
+    filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+    defaultPath: lastCsvFilePath
   });
+
   if (filePath) {
     csvFilePath = filePath;
     document.getElementById('csvFilePath').value = filePath;
+    // 選択したCSVファイルパスをlocalStorageに保存
+    localStorage.setItem('lastCsvFilePath', filePath);
     checkStartConditions();
   }
 }
