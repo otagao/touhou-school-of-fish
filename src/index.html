@@ -30,8 +30,25 @@
           <button id="selectCsvFile">選択</button>
         </div>
       </div>
-      
+
+      <div class="form-group">
+        <label for="recognitionModeSetup">ファイル認識モード</label>
+        <select id="recognitionModeSetup">
+          <option value="path-first">パス認識（推奨、高速）</option>
+          <option value="hash-first">ハッシュ認識（イレギュラーなフォルダ構成の人向け、低速）</option>
+        </select>
+        <p class="help-text">
+          パス認識: ファイルパスで認識し、失敗時にハッシュで認識します（推奨、高速）。<br>
+          ハッシュ認識: ハッシュ値で認識し、失敗時にパスで認識します（ファイル移動が多い環境向け、低速）。
+        </p>
+      </div>
+
       <button id="startApp" class="primary-button" disabled>アプリケーションを開始</button>
+
+      <div id="recognitionProgress" class="hidden">
+        <p>楽曲ファイルを認識中: <span id="recognitionProgressText">0/0</span></p>
+        <progress id="recognitionProgressBar" value="0" max="100"></progress>
+      </div>
     </div>
     
     <div class="main-panel hidden" id="mainPanel">
@@ -221,12 +238,12 @@
         <div class="form-group">
           <label for="recognitionMode">ファイル認識モード</label>
           <select id="recognitionMode">
-            <option value="hash-first">ハッシュ優先（推奨）</option>
-            <option value="path-first">パス優先</option>
+            <option value="path-first">パス認識（推奨、高速）</option>
+            <option value="hash-first">ハッシュ認識（イレギュラーなフォルダ構成の人向け、低速）</option>
           </select>
           <p class="help-text">
-            ハッシュ優先: wav/flacファイルをハッシュ値で認識し、失敗時にパスで認識します。<br>
-            パス優先: 従来のパス認識を優先し、失敗時にハッシュで認識します（mp3ユーザー向け）。
+            パス認識: ファイルパスで認識し、失敗時にハッシュで認識します（推奨、高速）。<br>
+            ハッシュ認識: ハッシュ値で認識し、失敗時にパスで認識します（ファイル移動が多い環境向け、低速）。
           </p>
         </div>
 

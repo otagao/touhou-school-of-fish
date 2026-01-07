@@ -169,9 +169,10 @@ function parseSongDataFromCsv(csvContent, platform = 'win32') {
  * @param {Array} audioFiles 音声ファイルパスの配列
  * @param {string} musicDirectory 音楽ディレクトリのパス
  * @param {string} recognitionMode 認識モード ('hash-first' | 'path-first')
+ * @param {Function} progressCallback プログレス報告用コールバック関数
  * @returns {Promise<Array>} マッチング済みの楽曲情報の配列
  */
-async function matchSongsWithFiles(songs, audioFiles, musicDirectory, recognitionMode = 'hash-first') {
+async function matchSongsWithFiles(songs, audioFiles, musicDirectory, recognitionMode = 'hash-first', progressCallback = null) {
   const fileUtils = require('./fileUtils.js');
   const hashUtils = require('./hashUtils.js');
 
@@ -217,12 +218,9 @@ async function matchSongsWithFiles(songs, audioFiles, musicDirectory, recognitio
     });
 
     if (recognitionMode === 'hash-first' && songsWithHash.length > 0) {
-      // ハッシュ優先モード: wav/flacファイルのみハッシュ計算
+      // ハッシュ優先モード: 全ての音声ファイルのハッシュを計算
       audioFiles.forEach(file => {
-        const ext = fileUtils.getFileExtension(file).toLowerCase();
-        if (ext === '.wav' || ext === '.flac') {
-          filesNeedingHash.add(file);
-        }
+        filesNeedingHash.add(file);
       });
     }
 
@@ -235,6 +233,10 @@ async function matchSongsWithFiles(songs, audioFiles, musicDirectory, recognitio
         (current, total) => {
           if (current % 10 === 0 || current === total) {
             console.log(`[songUtils.js] ハッシュ計算進捗: ${current}/${total}`);
+          }
+          // プログレスコールバックがあれば呼び出し
+          if (progressCallback) {
+            progressCallback(current, total);
           }
         }
       );

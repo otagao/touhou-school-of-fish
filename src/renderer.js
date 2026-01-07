@@ -12,7 +12,7 @@ let musicDirectory = '';
 let csvFilePath = '';
 let songData = [];
 let isMusicDirSet = false;
-let recognitionMode = 'hash-first'; // 認識モード（ハッシュ優先/パス優先）
+let recognitionMode = 'path-first'; // 認識モード（パス優先/ハッシュ優先）
 
 // モードインスタンス
 let listeningMode = null;
@@ -26,6 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedMode = localStorage.getItem('recognitionMode');
   if (savedMode) {
     recognitionMode = savedMode;
+  }
+  // 初期設定画面のドロップダウンにも反映
+  const setupModeSelect = document.getElementById('recognitionModeSetup');
+  if (setupModeSelect) {
+    setupModeSelect.value = recognitionMode;
   }
 
   // 初期設定画面のイベントリスナー
@@ -71,6 +76,15 @@ function checkStartConditions() {
 async function startApplication() {
   try {
     console.log('[renderer.js] アプリケーション開始処理を開始します');
+
+    // 初期設定画面で選択された認識モードを取得して保存
+    const setupModeSelect = document.getElementById('recognitionModeSetup');
+    if (setupModeSelect) {
+      recognitionMode = setupModeSelect.value;
+      localStorage.setItem('recognitionMode', recognitionMode);
+      console.log(`[renderer.js] 認識モードを保存: ${recognitionMode}`);
+    }
+
     // musicDirectory が設定されているかどうかのフラグを更新
     isMusicDirSet = !!musicDirectory; // musicDirectoryが空文字列でなければ true
     console.log(`[renderer.js] 音楽ディレクトリ設定状態: ${isMusicDirSet}`);
@@ -112,7 +126,22 @@ async function startApplication() {
 
           // ファイル名と楽曲データをマッチング
           console.log('[renderer.js] ファイルと楽曲データのマッチングを開始...');
-          await matchSongsWithFiles(audioFiles); // audioFiles が空でも動作する想定
+
+          // プログレスバー表示
+          const progressContainer = document.getElementById('recognitionProgress');
+          const progressText = document.getElementById('recognitionProgressText');
+          const progressBar = document.getElementById('recognitionProgressBar');
+          progressContainer.classList.remove('hidden');
+
+          await matchSongsWithFiles(audioFiles, (current, total) => {
+            // プログレスバーを更新
+            progressText.textContent = `${current}/${total}`;
+            progressBar.value = (current / total) * 100;
+          });
+
+          // プログレスバーを非表示
+          progressContainer.classList.add('hidden');
+
           window.songData = songData; // デバッグ機能用に更新
 
       } catch (error) {
@@ -172,10 +201,10 @@ function parseSongData(csvContent) {
 }
 
 // 楽曲データとファイルのマッチング
-async function matchSongsWithFiles(audioFiles) {
+async function matchSongsWithFiles(audioFiles, progressCallback = null) {
   try {
     // songUtils.jsの関数を使用してファイルマッチングを実行（認識モード付き）
-    songData = await songUtils.matchSongsWithFiles(songData, audioFiles, musicDirectory, recognitionMode);
+    songData = await songUtils.matchSongsWithFiles(songData, audioFiles, musicDirectory, recognitionMode, progressCallback);
   } catch (error) {
     console.error('[renderer.js] ファイルマッチングエラー:', error);
     alert(`ファイルのマッチング処理中にエラーが発生しました: ${error.message}`);

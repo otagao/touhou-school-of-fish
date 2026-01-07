@@ -168,11 +168,9 @@ class SettingsMode {
       const progressBar = document.getElementById('hashProgressBar');
       progressContainer.classList.remove('hidden');
 
-      // fileExistsがtrueで、wav/flacファイルの楽曲のみ処理
+      // fileExistsがtrueで、filePathが存在する全ての楽曲を処理
       const songsToProcess = songData.filter(song => {
-        if (!song.fileExists || !song.filePath) return false;
-        const ext = song.filePath.toLowerCase().match(/\.(wav|flac)$/);
-        return !!ext;
+        return song.fileExists && song.filePath;
       });
 
       console.log(`[SettingsMode] ${songsToProcess.length}個のファイルのハッシュを計算します`);
