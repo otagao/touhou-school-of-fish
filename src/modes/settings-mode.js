@@ -140,7 +140,7 @@ class SettingsMode {
   }
 
   /**
-   * デバッグ機能: 現在紐付けられているファイルのハッシュをCSVに書き込む
+   * デバッグ機能: 現在紐付けられているファイルのハッシュをCSVに追記する
    */
   async writeHashToCsv() {
     if (!this.csvFilePath) {
@@ -148,7 +148,7 @@ class SettingsMode {
       return;
     }
 
-    if (!confirm('この操作はCSVファイルを上書きします。バックアップを取りましたか？\n\n続行しますか？')) {
+    if (!confirm('この操作はCSVファイルにハッシュ値を追記します。\n重複するハッシュ値は追加されません。\n\n続行しますか？')) {
       return;
     }
 
@@ -177,16 +177,33 @@ class SettingsMode {
 
       console.log(`[SettingsMode] ${songsToProcess.length}個のファイルのハッシュを計算します`);
 
-      // ハッシュ計算
+      // ハッシュ計算と追記処理
       for (let i = 0; i < songsToProcess.length; i++) {
         const song = songsToProcess[i];
         progressText.textContent = `${i + 1}/${songsToProcess.length}`;
         progressBar.value = ((i + 1) / songsToProcess.length) * 100;
 
         try {
-          const hash = await window.electronAPI.calculateFileHash(song.filePath);
-          song.fileHash = hash;
-          console.log(`[SettingsMode] ハッシュ計算完了: ${song.filename} -> ${hash}`);
+          const newHash = await window.electronAPI.calculateFileHash(song.filePath);
+          console.log(`[SettingsMode] ハッシュ計算完了: ${song.filename} -> ${newHash}`);
+
+          // 既存のfileHashを配列として扱う
+          let hashArray = [];
+          if (Array.isArray(song.fileHash)) {
+            hashArray = [...song.fileHash];
+          } else if (song.fileHash && song.fileHash.trim() !== '') {
+            // 単一のハッシュ値の場合は配列に変換
+            hashArray = [song.fileHash.trim()];
+          }
+
+          // 新しいハッシュが既存の配列に含まれていない場合のみ追加
+          if (!hashArray.includes(newHash)) {
+            hashArray.push(newHash);
+            song.fileHash = hashArray;
+            console.log(`[SettingsMode] ハッシュを追記: ${song.filename} -> [${hashArray.join(', ')}]`);
+          } else {
+            console.log(`[SettingsMode] 既存のハッシュと重複のためスキップ: ${song.filename}`);
+          }
         } catch (error) {
           console.error(`[SettingsMode] ハッシュ計算エラー (${song.filename}):`, error);
           // エラーが発生してもスキップして続行
@@ -208,6 +225,18 @@ class SettingsMode {
         const character = Array.isArray(song.character) ? JSON.stringify(song.character) : song.character;
         const stage = Array.isArray(song.stage) ? JSON.stringify(song.stage) : song.stage;
 
+        // fileHashも配列の場合はJSON配列形式に変換
+        let fileHashStr = '';
+        if (Array.isArray(song.fileHash)) {
+          // 空でない要素のみをフィルタリング
+          const validHashes = song.fileHash.filter(h => h && h.trim() !== '');
+          if (validHashes.length > 0) {
+            fileHashStr = JSON.stringify(validHashes);
+          }
+        } else if (song.fileHash && song.fileHash.trim() !== '') {
+          fileHashStr = song.fileHash;
+        }
+
         const line = [
           song.filename,
           title,
@@ -216,7 +245,7 @@ class SettingsMode {
           game,
           character,
           stage,
-          song.fileHash || ''
+          fileHashStr
         ].join(',');
 
         csvLines.push(line);
@@ -228,7 +257,7 @@ class SettingsMode {
       await window.electronAPI.writeCsvFile(this.csvFilePath, csvContent);
 
       progressContainer.classList.add('hidden');
-      alert(`ハッシュ値の書き込みが完了しました。\n\n処理した楽曲数: ${songsToProcess.length}曲`);
+      alert(`ハッシュ値の追記が完了しました。\n\n処理した楽曲数: ${songsToProcess.length}曲\n\n既存のハッシュ値は保持され、新しいハッシュ値が追加されました。`);
       console.log('[SettingsMode] ハッシュCSV書き込み処理が完了しました');
 
     } catch (error) {

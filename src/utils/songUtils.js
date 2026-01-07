@@ -119,7 +119,7 @@ function parseSongDataFromCsv(csvContent, platform = 'win32') {
       const game = parseJsonArrayValue(values[4]?.trim() || '');
       const character = parseJsonArrayValue(values[5]?.trim() || '');
       const stage = parseJsonArrayValue(values[6]?.trim() || '');
-      const fileHash = values[7]?.trim() || ''; // ★追加: ファイルハッシュ値
+      const fileHash = parseJsonArrayValue(values[7]?.trim() || ''); // ★追加: ファイルハッシュ値（JSON配列対応）
 
       // タイトルは配列なので、配列が空でないか、または最初の要素が存在するかをチェック
       const hasTitle = Array.isArray(title) && title.length > 0 && title[0];
@@ -208,7 +208,13 @@ async function matchSongsWithFiles(songs, audioFiles, musicDirectory, recognitio
 
     // 2. ハッシュ計算が必要なファイルを特定
     const filesNeedingHash = new Set();
-    const songsWithHash = songs.filter(song => song.fileHash && song.fileHash.trim() !== '');
+    // fileHashが配列の場合も考慮してチェック
+    const songsWithHash = songs.filter(song => {
+      if (Array.isArray(song.fileHash)) {
+        return song.fileHash.length > 0 && song.fileHash.some(hash => hash && hash.trim() !== '');
+      }
+      return song.fileHash && song.fileHash.trim() !== '';
+    });
 
     if (recognitionMode === 'hash-first' && songsWithHash.length > 0) {
       // ハッシュ優先モード: wav/flacファイルのみハッシュ計算
@@ -251,12 +257,19 @@ async function matchSongsWithFiles(songs, audioFiles, musicDirectory, recognitio
 
       if (recognitionMode === 'hash-first') {
         // ハッシュ優先モード
-        if (song.fileHash && hashFileMap.has(song.fileHash)) {
-          song.filePath = hashFileMap.get(song.fileHash);
-          song.fileExists = true;
-          matched = true;
-          hashMatchCount++;
-        } else {
+        // fileHashが配列の場合、いずれかのハッシュ値でマッチングを試みる
+        const hashArray = Array.isArray(song.fileHash) ? song.fileHash : [song.fileHash];
+        for (const hash of hashArray) {
+          if (hash && hashFileMap.has(hash)) {
+            song.filePath = hashFileMap.get(hash);
+            song.fileExists = true;
+            matched = true;
+            hashMatchCount++;
+            break;
+          }
+        }
+
+        if (!matched) {
           // ハッシュマッチング失敗、パスマッチングにフォールバック
           const csvPathLower = song.filename.toLowerCase();
           if (csvPathLower && audioFileMap.has(csvPathLower)) {
@@ -274,11 +287,18 @@ async function matchSongsWithFiles(songs, audioFiles, musicDirectory, recognitio
           song.fileExists = true;
           matched = true;
           pathMatchCount++;
-        } else if (song.fileHash && hashFileMap.has(song.fileHash)) {
-          song.filePath = hashFileMap.get(song.fileHash);
-          song.fileExists = true;
-          matched = true;
-          hashMatchCount++;
+        } else {
+          // パスマッチング失敗、ハッシュマッチングにフォールバック
+          const hashArray = Array.isArray(song.fileHash) ? song.fileHash : [song.fileHash];
+          for (const hash of hashArray) {
+            if (hash && hashFileMap.has(hash)) {
+              song.filePath = hashFileMap.get(hash);
+              song.fileExists = true;
+              matched = true;
+              hashMatchCount++;
+              break;
+            }
+          }
         }
       }
 
