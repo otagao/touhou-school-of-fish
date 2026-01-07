@@ -12,6 +12,7 @@ let musicDirectory = '';
 let csvFilePath = '';
 let songData = [];
 let isMusicDirSet = false;
+let recognitionMode = 'hash-first'; // 認識モード（ハッシュ優先/パス優先）
 
 // モードインスタンス
 let listeningMode = null;
@@ -21,11 +22,17 @@ let settingsMode = null;
 
 // DOMが読み込まれたら実行
 document.addEventListener('DOMContentLoaded', () => {
+  // 認識モード設定の読み込み
+  const savedMode = localStorage.getItem('recognitionMode');
+  if (savedMode) {
+    recognitionMode = savedMode;
+  }
+
   // 初期設定画面のイベントリスナー
   document.getElementById('selectMusicDir').addEventListener('click', selectMusicDirectory);
   document.getElementById('selectCsvFile').addEventListener('click', selectCsvFile);
   document.getElementById('startApp').addEventListener('click', startApplication);
-  
+
   // モード切り替えボタン
   document.getElementById('listeningModeBtn').addEventListener('click', () => switchMode('listeningMode'));
   document.getElementById('quizModeBtn').addEventListener('click', () => switchMode('quizMode'));
@@ -81,6 +88,7 @@ async function startApplication() {
 
     console.log('[renderer.js] CSVデータのパースを開始...');
     parseSongData(csvContent); // songData が設定される
+    window.songData = songData; // デバッグ機能用にグローバルに公開
     console.log(`[renderer.js] CSVパース完了。${songData.length}曲のデータを読み込みました`);
     if (songData.length === 0) {
         alert('CSVファイルから有効な楽曲データを読み込めませんでした。');
@@ -104,7 +112,8 @@ async function startApplication() {
 
           // ファイル名と楽曲データをマッチング
           console.log('[renderer.js] ファイルと楽曲データのマッチングを開始...');
-          matchSongsWithFiles(audioFiles); // audioFiles が空でも動作する想定
+          await matchSongsWithFiles(audioFiles); // audioFiles が空でも動作する想定
+          window.songData = songData; // デバッグ機能用に更新
 
       } catch (error) {
            console.error(`[renderer.js] 音楽ディレクトリ処理中にエラー: ${error.message}`);
@@ -163,10 +172,10 @@ function parseSongData(csvContent) {
 }
 
 // 楽曲データとファイルのマッチング
-function matchSongsWithFiles(audioFiles) {
+async function matchSongsWithFiles(audioFiles) {
   try {
-    // songUtils.jsの関数を使用してファイルマッチングを実行
-    songData = songUtils.matchSongsWithFiles(songData, audioFiles, musicDirectory);
+    // songUtils.jsの関数を使用してファイルマッチングを実行（認識モード付き）
+    songData = await songUtils.matchSongsWithFiles(songData, audioFiles, musicDirectory, recognitionMode);
   } catch (error) {
     console.error('[renderer.js] ファイルマッチングエラー:', error);
     alert(`ファイルのマッチング処理中にエラーが発生しました: ${error.message}`);
@@ -212,8 +221,8 @@ function switchMode(mode) {
     quizMode.initialize();
   } else if (mode === 'settings') {
     document.getElementById('settingsPanel').classList.remove('hidden');
-    // SettingsModeを初期化
-    settingsMode = new SettingsMode(musicDirectory, csvFilePath, handleApplySettings);
+    // SettingsModeを初期化（認識モード付き）
+    settingsMode = new SettingsMode(musicDirectory, csvFilePath, handleApplySettings, recognitionMode);
     settingsMode.initialize();
   }
 }

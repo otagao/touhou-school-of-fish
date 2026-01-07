@@ -160,3 +160,59 @@ ipcMain.handle('focus-window', async () => {
   }
   return false;
 });
+
+// ファイルのMD5ハッシュ値を計算
+ipcMain.handle('calculate-file-hash', async (event, filePath) => {
+  const crypto = require('crypto');
+
+  if (!filePath) {
+    console.error('[main.js] ファイルパスが指定されていません');
+    throw new Error('ファイルパスが指定されていません');
+  }
+
+  try {
+    console.log(`[main.js] ハッシュ計算: ${filePath}`);
+
+    if (!fs.existsSync(filePath)) {
+      console.error(`[main.js] ファイルが存在しません: ${filePath}`);
+      throw new Error(`ファイルが存在しません: ${filePath}`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const hash = crypto.createHash('md5');
+      const stream = fs.createReadStream(filePath);
+
+      stream.on('data', (data) => hash.update(data));
+      stream.on('end', () => {
+        const hashValue = hash.digest('hex');
+        console.log(`[main.js] ハッシュ計算完了: ${hashValue}`);
+        resolve(hashValue);
+      });
+      stream.on('error', (err) => {
+        console.error(`[main.js] ハッシュ計算エラー:`, err);
+        reject(err);
+      });
+    });
+  } catch (error) {
+    console.error('[main.js] ハッシュ計算エラー:', error);
+    throw new Error(`ハッシュ計算に失敗しました: ${error.message}`);
+  }
+});
+
+// CSVファイルにハッシュ値を書き込む
+ipcMain.handle('write-csv-file', async (event, filePath, content) => {
+  if (!filePath || !content) {
+    console.error('[main.js] ファイルパスまたはコンテンツが指定されていません');
+    throw new Error('ファイルパスまたはコンテンツが指定されていません');
+  }
+
+  try {
+    console.log(`[main.js] CSVファイル書き込み: ${filePath}`);
+    fs.writeFileSync(filePath, content, 'utf-8');
+    console.log('[main.js] CSVファイル書き込み成功');
+    return true;
+  } catch (error) {
+    console.error('[main.js] CSVファイル書き込みエラー:', error);
+    throw new Error(`CSVファイルの書き込みに失敗しました: ${error.message}`);
+  }
+});

@@ -17,6 +17,7 @@ class Song {
       this.stage = songData.stage || ''; // ★追加: ステージ・場面
       this.filePath = songData.filePath || '';
       this.fileExists = !!songData.filePath;
+      this.fileHash = songData.fileHash || ''; // ★追加: ファイルハッシュ値（MD5）
     }
     
     /**
@@ -102,7 +103,8 @@ class Song {
         character: this.character,
         stage: this.stage, // ★追加
         filePath: this.filePath,
-        fileExists: this.fileExists
+        fileExists: this.fileExists,
+        fileHash: this.fileHash // ★追加
       };
     }
     

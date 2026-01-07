@@ -217,10 +217,35 @@
             <button id="selectCsvFileSettings">変更</button>
           </div>
         </div>
-        
-        <!-- その他の設定項目 -->
-        
+
+        <div class="form-group">
+          <label for="recognitionMode">ファイル認識モード</label>
+          <select id="recognitionMode">
+            <option value="hash-first">ハッシュ優先（推奨）</option>
+            <option value="path-first">パス優先</option>
+          </select>
+          <p class="help-text">
+            ハッシュ優先: wav/flacファイルをハッシュ値で認識し、失敗時にパスで認識します。<br>
+            パス優先: 従来のパス認識を優先し、失敗時にハッシュで認識します（mp3ユーザー向け）。
+          </p>
+        </div>
+
         <button id="applySettingsBtn" class="primary-button">設定を保存</button>
+
+        <!-- 開発者向けデバッグ機能 -->
+        <div class="form-group debug-section">
+          <h3>開発者向けデバッグ機能</h3>
+          <button id="writeHashToCsvBtn" class="secondary-button">
+            現在紐付けられているファイルのハッシュをCSVに書き込み
+          </button>
+          <p class="help-text warning-text">
+            警告: この機能はCSVファイルを上書きします。実行前に必ずバックアップを取ってください。
+          </p>
+          <div id="hashWriteProgress" class="hidden">
+            <p>ハッシュ計算中: <span id="hashProgressText">0/0</span></p>
+            <progress id="hashProgressBar" value="0" max="100"></progress>
+          </div>
+        </div>
       </div>
     </div>
     

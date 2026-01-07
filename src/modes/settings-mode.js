@@ -9,11 +9,13 @@ class SettingsMode {
    * @param {string} musicDirectory 音楽ディレクトリパス
    * @param {string} csvFilePath CSVファイルパス
    * @param {Function} onApplySettings 設定適用時のコールバック関数
+   * @param {string} recognitionMode 認識モード ('hash-first' | 'path-first')
    */
-  constructor(musicDirectory, csvFilePath, onApplySettings) {
+  constructor(musicDirectory, csvFilePath, onApplySettings, recognitionMode = 'hash-first') {
     this.musicDirectory = musicDirectory;
     this.csvFilePath = csvFilePath;
     this.onApplySettings = onApplySettings;
+    this.recognitionMode = recognitionMode;
 
     // イベントリスナーへの参照を保持（cleanup時に削除するため）
     this.eventListeners = [];
@@ -45,6 +47,9 @@ class SettingsMode {
 
     // 設定適用ボタン
     this.addEventListener('applySettingsBtn', 'click', () => this.applySettings());
+
+    // デバッグ機能: ハッシュCSV書き込みボタン
+    this.addEventListener('writeHashToCsvBtn', 'click', () => this.writeHashToCsv());
   }
 
   /**
@@ -67,6 +72,7 @@ class SettingsMode {
   updateSettingsDisplay() {
     document.getElementById('musicDirPathSettings').value = this.musicDirectory || '';
     document.getElementById('csvFilePathSettings').value = this.csvFilePath || '';
+    document.getElementById('recognitionMode').value = this.recognitionMode;
   }
 
   /**
@@ -97,6 +103,7 @@ class SettingsMode {
   applySettings() {
     const newMusicDir = document.getElementById('musicDirPathSettings').value;
     const newCsvPath = document.getElementById('csvFilePathSettings').value;
+    const newRecognitionMode = document.getElementById('recognitionMode').value;
 
     let settingsChanged = false;
 
@@ -112,6 +119,13 @@ class SettingsMode {
       settingsChanged = true;
     }
 
+    // 認識モードが変更された場合
+    if (newRecognitionMode !== this.recognitionMode) {
+      this.recognitionMode = newRecognitionMode;
+      localStorage.setItem('recognitionMode', newRecognitionMode);
+      settingsChanged = true;
+    }
+
     // 設定が変更された場合、アプリケーションを再起動する必要があることを通知
     if (settingsChanged) {
       if (confirm('設定を変更するにはアプリケーションを再起動する必要があります。再起動しますか？')) {
@@ -122,6 +136,104 @@ class SettingsMode {
       }
     } else {
       alert('設定に変更はありませんでした。');
+    }
+  }
+
+  /**
+   * デバッグ機能: 現在紐付けられているファイルのハッシュをCSVに書き込む
+   */
+  async writeHashToCsv() {
+    if (!this.csvFilePath) {
+      alert('CSVファイルが選択されていません。');
+      return;
+    }
+
+    if (!confirm('この操作はCSVファイルを上書きします。バックアップを取りましたか？\n\n続行しますか？')) {
+      return;
+    }
+
+    try {
+      console.log('[SettingsMode] ハッシュCSV書き込み処理を開始します');
+
+      // グローバル変数から楽曲データを取得
+      const songData = window.songData || [];
+      if (songData.length === 0) {
+        alert('楽曲データが読み込まれていません。');
+        return;
+      }
+
+      // 進捗表示を表示
+      const progressContainer = document.getElementById('hashWriteProgress');
+      const progressText = document.getElementById('hashProgressText');
+      const progressBar = document.getElementById('hashProgressBar');
+      progressContainer.classList.remove('hidden');
+
+      // fileExistsがtrueで、wav/flacファイルの楽曲のみ処理
+      const songsToProcess = songData.filter(song => {
+        if (!song.fileExists || !song.filePath) return false;
+        const ext = song.filePath.toLowerCase().match(/\.(wav|flac)$/);
+        return !!ext;
+      });
+
+      console.log(`[SettingsMode] ${songsToProcess.length}個のファイルのハッシュを計算します`);
+
+      // ハッシュ計算
+      for (let i = 0; i < songsToProcess.length; i++) {
+        const song = songsToProcess[i];
+        progressText.textContent = `${i + 1}/${songsToProcess.length}`;
+        progressBar.value = ((i + 1) / songsToProcess.length) * 100;
+
+        try {
+          const hash = await window.electronAPI.calculateFileHash(song.filePath);
+          song.fileHash = hash;
+          console.log(`[SettingsMode] ハッシュ計算完了: ${song.filename} -> ${hash}`);
+        } catch (error) {
+          console.error(`[SettingsMode] ハッシュ計算エラー (${song.filename}):`, error);
+          // エラーが発生してもスキップして続行
+        }
+      }
+
+      // CSVを生成
+      const csvLines = [];
+      // ヘッダー行
+      csvLines.push('ファイル名,タイトル,シリーズ区分,楽曲タイプ,登場作品,キャラクター,場面,ファイルハッシュ');
+
+      // データ行
+      for (const song of songData) {
+        // 配列フィールドをJSON配列形式に変換
+        const title = Array.isArray(song.title) ? JSON.stringify(song.title) : song.title;
+        const generation = Array.isArray(song.generation) ? JSON.stringify(song.generation) : song.generation;
+        const type = Array.isArray(song.type) ? JSON.stringify(song.type) : song.type;
+        const game = Array.isArray(song.game) ? JSON.stringify(song.game) : song.game;
+        const character = Array.isArray(song.character) ? JSON.stringify(song.character) : song.character;
+        const stage = Array.isArray(song.stage) ? JSON.stringify(song.stage) : song.stage;
+
+        const line = [
+          song.filename,
+          title,
+          generation,
+          type,
+          game,
+          character,
+          stage,
+          song.fileHash || ''
+        ].join(',');
+
+        csvLines.push(line);
+      }
+
+      const csvContent = csvLines.join('\n');
+
+      // CSVファイルに書き込み
+      await window.electronAPI.writeCsvFile(this.csvFilePath, csvContent);
+
+      progressContainer.classList.add('hidden');
+      alert(`ハッシュ値の書き込みが完了しました。\n\n処理した楽曲数: ${songsToProcess.length}曲`);
+      console.log('[SettingsMode] ハッシュCSV書き込み処理が完了しました');
+
+    } catch (error) {
+      console.error('[SettingsMode] ハッシュCSV書き込みエラー:', error);
+      alert(`ハッシュの書き込み中にエラーが発生しました: ${error.message}`);
     }
   }
 

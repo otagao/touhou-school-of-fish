@@ -36,5 +36,11 @@ window.electronAPI = {
   },
 
   // ウィンドウにフォーカスを設定
-  focusWindow: () => ipcRenderer.invoke('focus-window')
+  focusWindow: () => ipcRenderer.invoke('focus-window'),
+
+  // ファイルのハッシュ値を計算
+  calculateFileHash: (filePath) => ipcRenderer.invoke('calculate-file-hash', filePath),
+
+  // CSVファイルに書き込む
+  writeCsvFile: (filePath, content) => ipcRenderer.invoke('write-csv-file', filePath, content)
 };

@@ -104,7 +104,7 @@ function parseSongDataFromCsv(csvContent, platform = 'win32') {
         continue;
       }
 
-      // CSVフォーマット: ファイル名,曲名,シリーズ区分,楽曲タイプ,登場作品,担当キャラクター,場面
+      // CSVフォーマット: ファイル名,曲名,シリーズ区分,楽曲タイプ,登場作品,担当キャラクター,場面,ファイルハッシュ
       // ファイル名以外の全ての列でJSON配列形式に対応
       let filename = values[0]?.trim() || '';
       // Windows環境ではスラッシュをバックスラッシュに変換
@@ -119,6 +119,7 @@ function parseSongDataFromCsv(csvContent, platform = 'win32') {
       const game = parseJsonArrayValue(values[4]?.trim() || '');
       const character = parseJsonArrayValue(values[5]?.trim() || '');
       const stage = parseJsonArrayValue(values[6]?.trim() || '');
+      const fileHash = values[7]?.trim() || ''; // ★追加: ファイルハッシュ値
 
       // タイトルは配列なので、配列が空でないか、または最初の要素が存在するかをチェック
       const hasTitle = Array.isArray(title) && title.length > 0 && title[0];
@@ -136,7 +137,8 @@ function parseSongDataFromCsv(csvContent, platform = 'win32') {
         game: game,
         character: character,
         stage: stage,
-        filePath: ''
+        filePath: '',
+        fileHash: fileHash // ★追加: ファイルハッシュ値
       });
 
       songs.push(song);
@@ -162,17 +164,20 @@ function parseSongDataFromCsv(csvContent, platform = 'win32') {
 }
   
 /**
- * 楽曲データと音声ファイルをマッチングする（強化版: サブフォルダ対応、大文字小文字無視）
+ * 楽曲データと音声ファイルをマッチングする（ハッシュ優先・パス併用版）
  * @param {Array} songs 楽曲情報の配列
  * @param {Array} audioFiles 音声ファイルパスの配列
  * @param {string} musicDirectory 音楽ディレクトリのパス
- * @returns {Array} マッチング済みの楽曲情報の配列
+ * @param {string} recognitionMode 認識モード ('hash-first' | 'path-first')
+ * @returns {Promise<Array>} マッチング済みの楽曲情報の配列
  */
-function matchSongsWithFiles(songs, audioFiles, musicDirectory) {
+async function matchSongsWithFiles(songs, audioFiles, musicDirectory, recognitionMode = 'hash-first') {
   const fileUtils = require('./fileUtils.js');
+  const hashUtils = require('./hashUtils.js');
 
   try {
-    console.log('[songUtils.js] ファイルマッチング処理を開始します (拡張子あいまい、サブフォルダ対応)');
+    console.log('[songUtils.js] ファイルマッチング処理を開始します');
+    console.log(`[songUtils.js] 認識モード: ${recognitionMode}`);
     console.log(`[songUtils.js] 処理対象の楽曲データ数: ${songs.length}`);
     console.log(`[songUtils.js] 検出された音声ファイル数: ${audioFiles.length}`);
 
@@ -199,62 +204,104 @@ function matchSongsWithFiles(songs, audioFiles, musicDirectory) {
       }
     }
 
-    console.log(`[songUtils.js] 音声ファイルマップ作成完了。ユニークなパス数: ${audioFileMap.size}`);
-    // マップ内容のサンプルログ（デバッグ用）
-    let logCount = 0;
-    for (const [name, path] of audioFileMap.entries()) {
-      if (logCount < 3) {
-        console.log(`  マップ例: "${name}" => "${path}"`);
-        logCount++;
-      } else break;
+    console.log(`[songUtils.js] パスベースマップ作成完了。ユニークなパス数: ${audioFileMap.size}`);
+
+    // 2. ハッシュ計算が必要なファイルを特定
+    const filesNeedingHash = new Set();
+    const songsWithHash = songs.filter(song => song.fileHash && song.fileHash.trim() !== '');
+
+    if (recognitionMode === 'hash-first' && songsWithHash.length > 0) {
+      // ハッシュ優先モード: wav/flacファイルのみハッシュ計算
+      audioFiles.forEach(file => {
+        const ext = fileUtils.getFileExtension(file).toLowerCase();
+        if (ext === '.wav' || ext === '.flac') {
+          filesNeedingHash.add(file);
+        }
+      });
     }
 
-    // 2. 楽曲データと音声ファイルマップをマッチング
+    // 3. ハッシュベースのマップを作成
+    let hashFileMap = new Map();
+    if (filesNeedingHash.size > 0) {
+      console.log(`[songUtils.js] ${filesNeedingHash.size}個のファイルのハッシュを計算します...`);
+      const hashMap = await hashUtils.calculateMultipleHashes(
+        Array.from(filesNeedingHash),
+        (current, total) => {
+          if (current % 10 === 0 || current === total) {
+            console.log(`[songUtils.js] ハッシュ計算進捗: ${current}/${total}`);
+          }
+        }
+      );
+
+      // ハッシュ値をキー、ファイルパスをバリューとするマップを作成
+      for (const [filePath, hash] of hashMap.entries()) {
+        hashFileMap.set(hash, filePath);
+      }
+      console.log(`[songUtils.js] ハッシュベースマップ作成完了。ユニークなハッシュ数: ${hashFileMap.size}`);
+    }
+
+    // 4. マッチング処理
     let matchCount = 0;
+    let hashMatchCount = 0;
+    let pathMatchCount = 0;
     let noMatchCount = 0;
 
-    songs.forEach((song, index) => {
-      // CSVから読み込んだファイル名は拡張子なしを前提とし、小文字に変換
-      const csvPathLower = song.filename.toLowerCase();
+    for (const song of songs) {
+      let matched = false;
 
-      // デバッグログ（最初の数件と最後の数件）
-      const logDetails = index < 5 || index >= songs.length - 5;
-      if (logDetails) {
-        console.log(`[songUtils.js] マッチング試行 ${index + 1}/${songs.length}: CSV Filename="${song.filename}", PathLower="${csvPathLower}"`);
-      }
-
-      // マップにCSVのパス（小文字）が存在するか確認
-      if (csvPathLower && audioFileMap.has(csvPathLower)) {
-        song.filePath = audioFileMap.get(csvPathLower); // マップからフルパスを取得
-        song.fileExists = true; // ファイルが存在することを示すフラグ
-        matchCount++;
-
-        if (logDetails) {
-          console.log(`  -> マッチ成功: Path = ${song.filePath}`);
+      if (recognitionMode === 'hash-first') {
+        // ハッシュ優先モード
+        if (song.fileHash && hashFileMap.has(song.fileHash)) {
+          song.filePath = hashFileMap.get(song.fileHash);
+          song.fileExists = true;
+          matched = true;
+          hashMatchCount++;
+        } else {
+          // ハッシュマッチング失敗、パスマッチングにフォールバック
+          const csvPathLower = song.filename.toLowerCase();
+          if (csvPathLower && audioFileMap.has(csvPathLower)) {
+            song.filePath = audioFileMap.get(csvPathLower);
+            song.fileExists = true;
+            matched = true;
+            pathMatchCount++;
+          }
         }
       } else {
-        song.filePath = ''; // マッチしなかった場合はパスをクリア
-        song.fileExists = false; // ファイルが存在しないフラグ
-        noMatchCount++;
-
-        if (logDetails && csvPathLower) {
-          console.log(`  -> マッチ失敗: パス "${csvPathLower}" のファイルが見つかりません`);
-        } else if (logDetails && !csvPathLower) {
-          console.log(`  -> マッチ失敗: CSVのファイル名からパスを取得できませんでした`);
+        // パス優先モード
+        const csvPathLower = song.filename.toLowerCase();
+        if (csvPathLower && audioFileMap.has(csvPathLower)) {
+          song.filePath = audioFileMap.get(csvPathLower);
+          song.fileExists = true;
+          matched = true;
+          pathMatchCount++;
+        } else if (song.fileHash && hashFileMap.has(song.fileHash)) {
+          song.filePath = hashFileMap.get(song.fileHash);
+          song.fileExists = true;
+          matched = true;
+          hashMatchCount++;
         }
       }
-    });
 
-    console.log(`[songUtils.js] マッチング処理完了: ${matchCount} / ${songs.length} 曲のファイルとマッチしました。`);
-    console.log(`[songUtils.js] マッチしなかった曲数: ${noMatchCount}`);
+      if (matched) {
+        matchCount++;
+      } else {
+        song.filePath = '';
+        song.fileExists = false;
+        noMatchCount++;
+      }
+    }
+
+    console.log(`[songUtils.js] マッチング処理完了: ${matchCount} / ${songs.length} 曲`);
+    console.log(`[songUtils.js]   ハッシュマッチ: ${hashMatchCount}曲`);
+    console.log(`[songUtils.js]   パスマッチ: ${pathMatchCount}曲`);
+    console.log(`[songUtils.js]   未マッチ: ${noMatchCount}曲`);
 
     // マッチしたファイルが一つもない場合のエラーハンドリング
     if (matchCount === 0 && songs.length > 0) {
       const errorMsg = '楽曲データと音声ファイルが一つもマッチしませんでした。\n\n' +
                        '考えられる原因:\n' +
                        '- 音楽フォルダの指定が間違っている。\n' +
-                       '- CSVファイルの「ファイル名」列の値が、実際の音声ファイル名（拡張子を除く）と異なっている。\n' +
-                       '- CSVファイルの内容が空、または形式が正しくない。\n' +
+                       '- CSVファイルの「ファイル名」列や「ファイルハッシュ」列の値が正しくない。\n' +
                        '- 音楽フォルダ内に対応する音声ファイルが存在しない。\n\n' +
                        '設定とファイルを確認してください。';
       console.error('[songUtils.js] ' + errorMsg.replace(/\n/g, ' '));
