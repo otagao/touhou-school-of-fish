@@ -128,21 +128,20 @@
       
       <div id="quizModePanel" class="mode-panel hidden">
         <h2>演習モード</h2>
-        <div class="quiz-settings">
+        <div class="quiz-settings" id="quizSettings">
           <h3>出題設定</h3>
-          
-          <!-- ★追加: 絞り込み条件表示と詳細絞り込み -->
-          <div class="quiz-filter-summary">
-            <div class="song-count-display">
-              <span id="quizTotalSongs">楽曲数: 0曲</span>
-              <span id="quizAvailableSongs">| 再生可能: 0曲</span>
-            </div>
-          </div>
-          
-          <!-- ★追加: 出題絞り込みエリア -->
+
+          <!-- 折りたたみ可能な出題絞り込みエリア -->
           <div class="quiz-filter-section">
-            <h4>出題絞り込み</h4>
-            <div id="quizFilterControlsContainer" class="filter-controls-container">
+            <div class="quiz-filter-header">
+              <button id="toggleQuizFilters" class="toggle-filters-btn">出題絞り込み ▶</button>
+              <!-- 絞り込み条件表示 -->
+              <div class="quiz-filter-summary">
+                <span id="quizTotalSongs">絞り込み条件に適合する楽曲数: 0曲</span>
+                <span id="quizAvailableSongs">| 再生可能: 0曲</span>
+              </div>
+            </div>
+            <div id="quizFilterControlsContainer" class="filter-controls-container hidden">
               <div class="filter-group">
                 <h4>タイプ</h4>
                 <div id="quizTypeFilters" class="checkbox-group">
@@ -169,8 +168,8 @@
               </div>
             </div>
           </div>
-          
-          <div class="form-group">
+
+          <div class="form-group" id="answerModeGroup">
             <label for="answerMode">回答方式:</label>
             <select id="answerMode">
               <option value="exact">完全一致</option>
@@ -178,12 +177,12 @@
               <option value="button">ボタン回答</option>
             </select>
           </div>
-          
+
           <div class="form-group">
             <label for="quizVolumeSlider">音量:</label>
             <input type="range" id="quizVolumeSlider" min="0" max="100" value="80">
           </div>
-          
+
           <button id="startQuizBtn" class="primary-button">クイズを開始</button>
         </div>
         

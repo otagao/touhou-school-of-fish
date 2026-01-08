@@ -92,6 +92,9 @@ class QuizMode {
     // 回答方式選択
     this.addEventListener('answerMode', 'change', () => this.updateQuizStartButtonForAnswerMode());
 
+    // 出題絞り込み折りたたみボタン
+    this.addEventListener('toggleQuizFilters', 'click', () => this.toggleQuizFilters());
+
     // Enterキーで回答提出
     const answerInput = document.getElementById('answerText');
     if (answerInput) {
@@ -175,11 +178,27 @@ class QuizMode {
     const totalCount = filteredSongs.length;
     const availableCount = filteredSongs.filter(song => this.isMusicDirSet && song.fileExists).length;
 
-    document.getElementById('quizTotalSongs').textContent = `楽曲数: ${totalCount}曲`;
+    document.getElementById('quizTotalSongs').textContent = `絞り込み条件に適合する楽曲数: ${totalCount}曲`;
     document.getElementById('quizAvailableSongs').textContent = `| 再生可能: ${availableCount}曲`;
 
     // 回答方式と再生可能楽曲数に応じて「クイズを開始」ボタンの状態を制御
     this.updateQuizStartButtonForAnswerMode();
+  }
+
+  /**
+   * 出題絞り込みパネルを折りたたむ/展開する
+   */
+  toggleQuizFilters() {
+    const container = document.getElementById('quizFilterControlsContainer');
+    const toggleBtn = document.getElementById('toggleQuizFilters');
+
+    if (container.classList.contains('hidden')) {
+      container.classList.remove('hidden');
+      toggleBtn.textContent = '出題絞り込み ▼';
+    } else {
+      container.classList.add('hidden');
+      toggleBtn.textContent = '出題絞り込み ▶';
+    }
   }
 
   /**
@@ -273,6 +292,20 @@ class QuizMode {
     document.getElementById('quizContainer').classList.remove('hidden');
     document.getElementById('quizResult').classList.add('hidden');
     document.getElementById('nextQuestionBtn').style.display = 'none';
+
+    // 絞り込み、回答方式選択、楽曲数表示エリアを非表示
+    const filterSection = document.querySelector('.quiz-filter-section');
+    const answerModeGroup = document.getElementById('answerModeGroup');
+    const filterSummary = document.querySelector('.quiz-filter-summary');
+    if (filterSection) {
+      filterSection.style.display = 'none';
+    }
+    if (answerModeGroup) {
+      answerModeGroup.style.display = 'none';
+    }
+    if (filterSummary) {
+      filterSummary.style.display = 'none';
+    }
 
     // 回答UIを初期化（念のため）
     const answerInput = document.getElementById('answerText');
@@ -765,6 +798,20 @@ class QuizMode {
     document.getElementById('submitAnswerBtn').disabled = false;
     document.getElementById('answerText').disabled = false;
     document.getElementById('answerText').value = '';
+
+    // 絞り込み、回答方式選択、楽曲数表示エリアを再表示
+    const filterSection = document.querySelector('.quiz-filter-section');
+    const answerModeGroup = document.getElementById('answerModeGroup');
+    const filterSummary = document.querySelector('.quiz-filter-summary');
+    if (filterSection) {
+      filterSection.style.display = '';
+    }
+    if (answerModeGroup) {
+      answerModeGroup.style.display = '';
+    }
+    if (filterSummary) {
+      filterSummary.style.display = '';
+    }
   }
 
   /**

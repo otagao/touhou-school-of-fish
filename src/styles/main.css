@@ -379,47 +379,96 @@
     background-color: #e9ecef;
   }
 
+  /* 演習モード用フィルターヘッダー */
+  .quiz-filter-section {
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    background-color: #fafafa;
+  }
+
+  .quiz-filter-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 0;
+  }
+
+  .quiz-filter-header .toggle-filters-btn {
+    width: auto;
+    min-width: 150px;
+    flex-shrink: 0;
+    background-color: #fff;
+    border: 1px solid #ddd;
+  }
+
+  .quiz-filter-header .toggle-filters-btn:hover {
+    background-color: #f5f5f5;
+  }
+
+  .quiz-filter-summary {
+    font-size: 0.9em;
+    color: #666;
+    white-space: nowrap;
+  }
+
+  .quiz-filter-summary span {
+    margin-right: 5px;
+  }
+
   /* フィルタコントロール */
   .filter-controls-container {
     display: flex;
-    flex-wrap: wrap; /* 画面幅に応じて折り返し */
-    gap: 20px; /* グループ間のスペース */
-    padding: 10px 0;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #eee; /* 区切り線 */
-    border-top: 1px solid #eee; /* 上の区切り線も追加 */
-    margin-top: 5px;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 20px 0 10px 0;
+    margin-top: 15px;
+    border-top: 2px solid #ddd;
+    justify-content: center;
   }
 
   .filter-group {
-    min-width: 180px; /* 各フィルターグループの最小幅 */
+    min-width: 180px;
+    max-width: 220px;
     margin-bottom: 10px;
+    text-align: center;
   }
 
   .filter-group h4 {
-    margin-bottom: 8px;
-    font-size: 0.95em; /* 少し小さく */
+    margin-bottom: 10px;
+    font-size: 0.95em;
     color: #444;
     font-weight: bold;
+    text-align: center;
   }
 
   .checkbox-group {
-    max-height: 100px; /* 高さが長くなりすぎないようにスクロール可能に */
+    max-height: 120px;
     overflow-y: auto;
-    padding-right: 8px; /* スクロールバーのためのスペース */
+    padding: 10px;
     font-size: 0.9em;
+    text-align: left;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
   }
 
   .checkbox-label {
-    display: block; /* 各チェックボックスを改行表示 */
-    margin-bottom: 5px;
+    display: block;
+    margin-bottom: 6px;
     font-weight: normal;
     cursor: pointer;
-    white-space: nowrap; /* 長いラベルが折り返さないように */
+    white-space: nowrap;
+    padding: 2px 0;
+  }
+
+  .checkbox-label:hover {
+    background-color: #f5f5f5;
   }
 
   .checkbox-label input[type="checkbox"] {
-    margin-right: 6px;
+    margin-right: 8px;
     vertical-align: middle;
   }
 
