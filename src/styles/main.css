@@ -315,9 +315,33 @@
   
   .button-answer {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 10px;
     margin-bottom: 20px;
+  }
+
+  .answer-choice-button {
+    width: 100%;
+    padding: 15px;
+    font-size: 16px;
+    text-align: left;
+    color: #000;
+    background-color: #f5f5f5;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .answer-choice-button:hover {
+    background-color: #e3f2fd;
+    border-color: #2196f3;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .answer-choice-button:active {
+    transform: translateY(0);
   }
   
   .quiz-result {

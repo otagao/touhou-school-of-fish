@@ -206,11 +206,22 @@ class QuizMode {
     const answerMode = document.getElementById('answerMode').value;
     const startQuizBtn = document.getElementById('startQuizBtn');
 
-    if (answerMode !== 'exact') {
-      // 完全一致以外の場合はボタンを無効化
+    if (answerMode === 'fuzzy') {
+      // 曖昧一致の場合はボタンを無効化
       startQuizBtn.disabled = true;
-      startQuizBtn.title = `${answerMode === 'fuzzy' ? '曖昧一致' : 'ボタン回答'}モードは現在未実装です。完全一致モードをご利用ください。`;
-      console.log(`[Quiz] ${answerMode}モードは未実装のため、クイズ開始ボタンを無効化しました`);
+      startQuizBtn.title = '曖昧一致モードは現在未実装です。完全一致モードまたはボタン回答モードをご利用ください。';
+      console.log('[Quiz] 曖昧一致モードは未実装のため、クイズ開始ボタンを無効化しました');
+    } else if (answerMode === 'button') {
+      // ボタン回答の場合は、再生可能楽曲数が4曲以上必要
+      const filteredSongs = this.filterQuizSongsInternal();
+      const availableCount = filteredSongs.filter(song => this.isMusicDirSet && song.fileExists).length;
+      if (availableCount < 4) {
+        startQuizBtn.disabled = true;
+        startQuizBtn.title = 'ボタン回答モードには最低4曲の再生可能な楽曲が必要です。絞り込み条件を変更してください。';
+      } else {
+        startQuizBtn.disabled = false;
+        startQuizBtn.title = '';
+      }
     } else {
       // 完全一致の場合は、再生可能楽曲数に基づいて判定
       const filteredSongs = this.filterQuizSongsInternal();
@@ -234,6 +245,13 @@ class QuizMode {
       return;
     }
 
+    // ボタン回答モードの場合は楽曲数チェック
+    const answerMode = document.getElementById('answerMode').value;
+    if (answerMode === 'button' && availableSongs.length < 4) {
+      alert('ボタン回答モードには最低4曲の再生可能な楽曲が必要です。');
+      return;
+    }
+
     // クイズ状態を初期化
     this.quizState = {
       isActive: true,
@@ -245,10 +263,11 @@ class QuizMode {
       questionStartTime: null,
       responseTimes: [],
       currentQuizSong: null,
-      quizAudioPlayer: null
+      quizAudioPlayer: null,
+      answerMode: answerMode // 回答モードを保存
     };
 
-    console.log(`[Quiz] ${availableSongs.length}曲が出題対象です`);
+    console.log(`[Quiz] ${availableSongs.length}曲が出題対象です（回答モード: ${answerMode}）`);
 
     // UIを出題モードに切り替え
     document.getElementById('quizContainer').classList.remove('hidden');
@@ -295,6 +314,31 @@ class QuizMode {
     // UIを更新
     this.updateQuizUI();
 
+    // 回答方式に応じてUIを切り替え
+    if (this.quizState.answerMode === 'button') {
+      this.showButtonAnswerUI(selectedSong);
+    } else {
+      this.showTextAnswerUI();
+    }
+
+    // 音楽を読み込み（これは非同期処理）
+    this.loadQuizSong(selectedSong);
+
+    // 時間計測開始
+    this.quizState.questionStartTime = Date.now();
+  }
+
+  /**
+   * テキスト入力UIを表示する
+   */
+  showTextAnswerUI() {
+    const textAnswerInput = document.getElementById('textAnswerInput');
+    const buttonAnswerInput = document.getElementById('buttonAnswerInput');
+
+    // ボタンUIを非表示、テキストUIを表示
+    buttonAnswerInput.classList.add('hidden');
+    textAnswerInput.classList.remove('hidden');
+
     // 解答用テキストボックスをクリアして有効化
     const answerInput = document.getElementById('answerText');
     answerInput.value = '';
@@ -302,12 +346,6 @@ class QuizMode {
 
     // 回答ボタンを有効化
     document.getElementById('submitAnswerBtn').disabled = false;
-
-    // 音楽を読み込み（これは非同期処理）
-    this.loadQuizSong(selectedSong);
-
-    // 時間計測開始
-    this.quizState.questionStartTime = Date.now();
 
     // フォーカスを設定（多段階で確実にフォーカスする）
     // 1. Electronウィンドウ自体にフォーカスを設定（メインプロセス経由）
@@ -324,13 +362,13 @@ class QuizMode {
 
     // 3. requestAnimationFrameで再度フォーカスを設定（Electron環境での確実性向上）
     requestAnimationFrame(() => {
-      if (this.quizState.isActive && this.quizState.currentQuizSong === selectedSong) {
+      if (this.quizState.isActive && this.quizState.currentQuizSong) {
         const input = document.getElementById('answerText');
         if (input && !input.disabled) {
           input.focus();
           // さらにsetTimeoutで最終確認（Electronのウィンドウフォーカス問題対策）
           setTimeout(() => {
-            if (this.quizState.isActive && this.quizState.currentQuizSong === selectedSong) {
+            if (this.quizState.isActive) {
               const finalInput = document.getElementById('answerText');
               if (finalInput && !finalInput.disabled && document.activeElement !== finalInput) {
                 finalInput.focus();
@@ -342,6 +380,110 @@ class QuizMode {
         }
       }
     });
+  }
+
+  /**
+   * ボタン回答UIを表示する
+   * @param {Song} correctSong 正解の楽曲
+   */
+  showButtonAnswerUI(correctSong) {
+    const textAnswerInput = document.getElementById('textAnswerInput');
+    const buttonAnswerInput = document.getElementById('buttonAnswerInput');
+
+    // テキストUIを非表示、ボタンUIを表示
+    textAnswerInput.classList.add('hidden');
+    buttonAnswerInput.classList.remove('hidden');
+
+    // 4択の選択肢を生成
+    const choices = this.generateButtonChoices(correctSong);
+
+    // ボタンを生成
+    buttonAnswerInput.innerHTML = '';
+    choices.forEach((song, index) => {
+      const button = document.createElement('button');
+      button.className = 'answer-choice-button';
+
+      // タイトルが配列の場合は最初の要素を表示
+      const titleDisplay = Array.isArray(song.title) ? song.title[0] : song.title;
+      button.textContent = titleDisplay;
+
+      // ボタンクリック時のハンドラー
+      const clickHandler = () => this.submitButtonAnswer(song);
+      button.addEventListener('click', clickHandler);
+
+      // クリーンアップ用にハンドラーを保存
+      button._clickHandler = clickHandler;
+
+      buttonAnswerInput.appendChild(button);
+    });
+
+    console.log('[Quiz] ボタン回答UIを生成しました');
+  }
+
+  /**
+   * 4択の選択肢を生成する
+   * @param {Song} correctSong 正解の楽曲
+   * @returns {Array} 4つの楽曲オブジェクトの配列（正解含む）
+   */
+  generateButtonChoices(correctSong) {
+    // 利用可能な全楽曲から選択肢を選ぶ（現在の問題と使用済み楽曲を含む）
+    const allPossibleSongs = [...this.quizState.availableSongs, ...this.quizState.usedSongs];
+
+    // 正解以外の楽曲からランダムに3曲選出
+    const wrongChoices = [];
+    const candidates = allPossibleSongs.filter(song => song !== correctSong);
+
+    while (wrongChoices.length < 3 && candidates.length > 0) {
+      const randomIndex = Math.floor(Math.random() * candidates.length);
+      wrongChoices.push(candidates.splice(randomIndex, 1)[0]);
+    }
+
+    // 正解を追加
+    const choices = [...wrongChoices, correctSong];
+
+    // シャッフル（Fisher-Yates アルゴリズム）
+    for (let i = choices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [choices[i], choices[j]] = [choices[j], choices[i]];
+    }
+
+    return choices;
+  }
+
+  /**
+   * ボタンで選択した回答を提出する
+   * @param {Song} selectedSong ユーザーが選択した楽曲
+   */
+  submitButtonAnswer(selectedSong) {
+    if (!this.quizState.isActive || !this.quizState.currentQuizSong) {
+      console.warn('[Quiz] クイズがアクティブでないか、現在の問題がありません');
+      return;
+    }
+
+    // タイトルを取得（配列の場合は最初の要素）
+    const userAnswer = Array.isArray(selectedSong.title) ? selectedSong.title[0] : selectedSong.title;
+
+    // 時間計測終了
+    const responseTime = Date.now() - this.quizState.questionStartTime;
+    this.quizState.responseTimes.push(responseTime);
+
+    console.log(`[Quiz] ユーザー回答: "${userAnswer}", 正解: "${this.quizState.currentQuizSong.title}", 回答時間: ${responseTime}ms`);
+
+    // 正誤判定（同じ楽曲オブジェクトかどうかで判定）
+    const isCorrect = selectedSong === this.quizState.currentQuizSong;
+
+    if (isCorrect) {
+      this.quizState.correctAnswers++;
+      console.log('[Quiz] 正解!');
+    } else {
+      console.log('[Quiz] 不正解');
+    }
+
+    // 結果を表示
+    this.showQuestionResult(isCorrect, userAnswer, responseTime);
+
+    // 使用済み楽曲に追加
+    this.quizState.usedSongs.push(this.quizState.currentQuizSong);
   }
 
   /**
