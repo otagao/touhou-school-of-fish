@@ -207,109 +207,198 @@ async function matchSongsWithFiles(songs, audioFiles, musicDirectory, recognitio
 
     console.log(`[songUtils.js] パスベースマップ作成完了。ユニークなパス数: ${audioFileMap.size}`);
 
-    // 2. ハッシュ計算が必要なファイルを特定
-    const filesNeedingHash = new Set();
-    // fileHashが配列の場合も考慮してチェック
-    const songsWithHash = songs.filter(song => {
-      if (Array.isArray(song.fileHash)) {
-        return song.fileHash.length > 0 && song.fileHash.some(hash => hash && hash.trim() !== '');
-      }
-      return song.fileHash && song.fileHash.trim() !== '';
-    });
-
-    if (recognitionMode === 'hash-first' && songsWithHash.length > 0) {
-      // ハッシュ優先モード: 全ての音声ファイルのハッシュを計算
-      audioFiles.forEach(file => {
-        filesNeedingHash.add(file);
-      });
-    }
-
-    // 3. ハッシュベースのマップを作成
-    let hashFileMap = new Map();
-    if (filesNeedingHash.size > 0) {
-      console.log(`[songUtils.js] ${filesNeedingHash.size}個のファイルのハッシュを計算します...`);
-      const hashMap = await hashUtils.calculateMultipleHashes(
-        Array.from(filesNeedingHash),
-        (current, total) => {
-          if (current % 10 === 0 || current === total) {
-            console.log(`[songUtils.js] ハッシュ計算進捗: ${current}/${total}`);
-          }
-          // プログレスコールバックがあれば呼び出し
-          if (progressCallback) {
-            progressCallback(current, total);
-          }
-        }
-      );
-
-      // ハッシュ値をキー、ファイルパスをバリューとするマップを作成
-      for (const [filePath, hash] of hashMap.entries()) {
-        hashFileMap.set(hash, filePath);
-      }
-      console.log(`[songUtils.js] ハッシュベースマップ作成完了。ユニークなハッシュ数: ${hashFileMap.size}`);
-    }
-
-    // 4. マッチング処理
+    // 2. 第一段階のマッチング処理（優先モードに応じた処理）
     let matchCount = 0;
     let hashMatchCount = 0;
     let pathMatchCount = 0;
     let noMatchCount = 0;
+    const unmatchedSongs = []; // 第一段階でマッチしなかった楽曲
 
-    for (const song of songs) {
-      let matched = false;
+    if (recognitionMode === 'hash-first') {
+      // ハッシュ優先モード: まずハッシュ情報がある楽曲をハッシュでマッチング
+      console.log('[songUtils.js] ハッシュ優先モード: ハッシュ認識を実行します');
 
-      if (recognitionMode === 'hash-first') {
-        // ハッシュ優先モード
-        // fileHashが配列の場合、いずれかのハッシュ値でマッチングを試みる
-        const hashArray = Array.isArray(song.fileHash) ? song.fileHash : [song.fileHash];
-        for (const hash of hashArray) {
-          if (hash && hashFileMap.has(hash)) {
-            song.filePath = hashFileMap.get(hash);
-            song.fileExists = true;
-            matched = true;
-            hashMatchCount++;
-            break;
-          }
+      // ハッシュ情報がある楽曲を抽出
+      const songsWithHash = songs.filter(song => {
+        if (Array.isArray(song.fileHash)) {
+          return song.fileHash.length > 0 && song.fileHash.some(hash => hash && hash.trim() !== '');
         }
+        return song.fileHash && song.fileHash.trim() !== '';
+      });
 
-        if (!matched) {
-          // ハッシュマッチング失敗、パスマッチングにフォールバック
-          const csvPathLower = song.filename.toLowerCase();
-          if (csvPathLower && audioFileMap.has(csvPathLower)) {
-            song.filePath = audioFileMap.get(csvPathLower);
-            song.fileExists = true;
-            matched = true;
-            pathMatchCount++;
+      const matchedFilePaths = new Set(); // ハッシュでマッチしたファイルパスを記録
+
+      if (songsWithHash.length > 0) {
+        console.log(`[songUtils.js] ${songsWithHash.length}曲にハッシュ情報があります。ハッシュを計算します...`);
+
+        // 全ファイルのハッシュを計算
+        const hashMap = await hashUtils.calculateMultipleHashes(
+          audioFiles,
+          (current, total) => {
+            if (current % 10 === 0 || current === total) {
+              console.log(`[songUtils.js] ハッシュ計算進捗: ${current}/${total}`);
+            }
+            if (progressCallback) {
+              progressCallback(current, total);
+            }
           }
+        );
+
+        // ハッシュ値をキー、ファイルパスをバリューとするマップを作成
+        const hashFileMap = new Map();
+        for (const [filePath, hash] of hashMap.entries()) {
+          hashFileMap.set(hash, filePath);
         }
-      } else {
-        // パス優先モード
-        const csvPathLower = song.filename.toLowerCase();
-        if (csvPathLower && audioFileMap.has(csvPathLower)) {
-          song.filePath = audioFileMap.get(csvPathLower);
-          song.fileExists = true;
-          matched = true;
-          pathMatchCount++;
-        } else {
-          // パスマッチング失敗、ハッシュマッチングにフォールバック
+        console.log(`[songUtils.js] ハッシュベースマップ作成完了。ユニークなハッシュ数: ${hashFileMap.size}`);
+
+        // ハッシュマッチング
+        for (const song of songs) {
+          let matched = false;
           const hashArray = Array.isArray(song.fileHash) ? song.fileHash : [song.fileHash];
+
           for (const hash of hashArray) {
-            if (hash && hashFileMap.has(hash)) {
-              song.filePath = hashFileMap.get(hash);
+            if (hash && hash.trim() !== '' && hashFileMap.has(hash)) {
+              const filePath = hashFileMap.get(hash);
+              song.filePath = filePath;
               song.fileExists = true;
+              matchedFilePaths.add(filePath); // マッチしたファイルを記録
               matched = true;
               hashMatchCount++;
+              matchCount++;
               break;
             }
           }
+
+          if (!matched) {
+            unmatchedSongs.push(song);
+          }
+        }
+      } else {
+        // ハッシュ情報がない場合はすべて未マッチ扱い
+        unmatchedSongs.push(...songs);
+      }
+
+      console.log(`[songUtils.js] ハッシュ認識完了: ${hashMatchCount}曲マッチ、${unmatchedSongs.length}曲未マッチ`);
+
+      // フォールバック: パス認識（ハッシュでマッチしなかったファイルのパスのみチェック）
+      if (unmatchedSongs.length > 0) {
+        console.log(`[songUtils.js] ${unmatchedSongs.length}曲をパス認識でフォールバック処理します`);
+
+        // ハッシュでマッチしなかったファイルのみをパス認識対象にする
+        // audioFileMapから既にマッチしたファイルを除外した新しいマップを作成
+        const unmatchedAudioFileMap = new Map();
+        for (const [pathKey, filePath] of audioFileMap.entries()) {
+          if (!matchedFilePaths.has(filePath)) {
+            unmatchedAudioFileMap.set(pathKey, filePath);
+          }
+        }
+        console.log(`[songUtils.js] ${unmatchedAudioFileMap.size}個のファイル（全${audioFileMap.size}個中）をパス認識対象にします`);
+
+        for (const song of unmatchedSongs) {
+          const csvPathLower = song.filename.toLowerCase();
+          if (csvPathLower && unmatchedAudioFileMap.has(csvPathLower)) {
+            song.filePath = unmatchedAudioFileMap.get(csvPathLower);
+            song.fileExists = true;
+            pathMatchCount++;
+            matchCount++;
+          } else {
+            song.filePath = '';
+            song.fileExists = false;
+            noMatchCount++;
+          }
+        }
+        console.log(`[songUtils.js] パス認識フォールバック完了: ${pathMatchCount}曲マッチ`);
+      }
+
+    } else {
+      // パス優先モード: まずパスでマッチング
+      console.log('[songUtils.js] パス優先モード: パス認識を実行します');
+
+      const matchedFilePaths = new Set(); // パスでマッチしたファイルパスを記録
+
+      for (const song of songs) {
+        const csvPathLower = song.filename.toLowerCase();
+        if (csvPathLower && audioFileMap.has(csvPathLower)) {
+          const filePath = audioFileMap.get(csvPathLower);
+          song.filePath = filePath;
+          song.fileExists = true;
+          matchedFilePaths.add(filePath); // マッチしたファイルを記録
+          pathMatchCount++;
+          matchCount++;
+        } else {
+          unmatchedSongs.push(song);
         }
       }
 
-      if (matched) {
-        matchCount++;
-      } else {
-        song.filePath = '';
-        song.fileExists = false;
-        noMatchCount++;
+      console.log(`[songUtils.js] パス認識完了: ${pathMatchCount}曲マッチ、${unmatchedSongs.length}曲未マッチ`);
+
+      // フォールバック: ハッシュ認識（未マッチの楽曲のうちハッシュ情報があるもののみ）
+      if (unmatchedSongs.length > 0) {
+        const unmatchedWithHash = unmatchedSongs.filter(song => {
+          if (Array.isArray(song.fileHash)) {
+            return song.fileHash.length > 0 && song.fileHash.some(hash => hash && hash.trim() !== '');
+          }
+          return song.fileHash && song.fileHash.trim() !== '';
+        });
+
+        if (unmatchedWithHash.length > 0) {
+          console.log(`[songUtils.js] ${unmatchedWithHash.length}曲をハッシュ認識でフォールバック処理します`);
+
+          // パスでマッチしなかったファイルのみをハッシュ計算対象にする
+          const unmatchedFiles = audioFiles.filter(file => !matchedFilePaths.has(file));
+          console.log(`[songUtils.js] ${unmatchedFiles.length}個のファイル（全${audioFiles.length}個中）のハッシュを計算します`);
+
+          // フォールバック用にマッチしなかったファイルのみハッシュを計算
+          const hashMap = await hashUtils.calculateMultipleHashes(
+            unmatchedFiles,
+            (current, total) => {
+              if (current % 10 === 0 || current === total) {
+                console.log(`[songUtils.js] ハッシュ計算進捗: ${current}/${total}`);
+              }
+              if (progressCallback) {
+                progressCallback(current, total);
+              }
+            }
+          );
+
+          // ハッシュ値をキー、ファイルパスをバリューとするマップを作成
+          const hashFileMap = new Map();
+          for (const [filePath, hash] of hashMap.entries()) {
+            hashFileMap.set(hash, filePath);
+          }
+          console.log(`[songUtils.js] ハッシュベースマップ作成完了。ユニークなハッシュ数: ${hashFileMap.size}`);
+
+          // ハッシュマッチング
+          for (const song of unmatchedSongs) {
+            let matched = false;
+            const hashArray = Array.isArray(song.fileHash) ? song.fileHash : [song.fileHash];
+
+            for (const hash of hashArray) {
+              if (hash && hash.trim() !== '' && hashFileMap.has(hash)) {
+                song.filePath = hashFileMap.get(hash);
+                song.fileExists = true;
+                matched = true;
+                hashMatchCount++;
+                matchCount++;
+                break;
+              }
+            }
+
+            if (!matched) {
+              song.filePath = '';
+              song.fileExists = false;
+              noMatchCount++;
+            }
+          }
+          console.log(`[songUtils.js] ハッシュ認識フォールバック完了: ${hashMatchCount}曲マッチ`);
+        } else {
+          // ハッシュ情報がない未マッチ楽曲は認識失敗として処理
+          for (const song of unmatchedSongs) {
+            song.filePath = '';
+            song.fileExists = false;
+            noMatchCount++;
+          }
+        }
       }
     }
 
