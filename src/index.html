@@ -173,7 +173,7 @@
             <label for="answerMode">回答方式:</label>
             <select id="answerMode">
               <option value="exact">完全一致</option>
-              <option value="fuzzy">曖昧一致（未実装）</option>
+              <option value="fuzzy">曖昧一致</option>
               <option value="button">ボタン回答</option>
             </select>
           </div>
@@ -198,6 +198,14 @@
           <div class="answer-input" id="textAnswerInput">
             <input type="text" id="answerText" placeholder="曲名を入力してください...">
             <button id="submitAnswerBtn">回答</button>
+
+            <div class="fuzzy-candidates-container hidden" id="fuzzyCandidatesContainer">
+              <p class="fuzzy-candidates-label">複数の候補が見つかりました。正解を選択してください:</p>
+              <div class="fuzzy-candidates-buttons" id="fuzzyCandidatesButtons">
+                <!-- 候補ボタンが動的に生成される -->
+              </div>
+              <button class="fuzzy-cancel-button" id="fuzzyCancelBtn">キャンセル</button>
+            </div>
           </div>
           
           <div class="button-answer hidden" id="buttonAnswerInput">

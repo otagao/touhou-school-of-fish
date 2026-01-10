@@ -26,7 +26,10 @@ class QuizMode {
       questionStartTime: null,
       responseTimes: [],
       currentQuizSong: null,
-      quizAudioPlayer: null
+      quizAudioPlayer: null,
+      awaitingCandidateSelection: false,  // 候補選択待ち状態
+      fuzzyMatchCandidates: [],           // 現在の候補楽曲リスト
+      fuzzyUserAnswer: ''                 // 曖昧一致で入力された回答
     };
 
     // イベントリスナーへの参照を保持（cleanup時に削除するため）
@@ -91,6 +94,9 @@ class QuizMode {
 
     // 回答方式選択
     this.addEventListener('answerMode', 'change', () => this.updateQuizStartButtonForAnswerMode());
+
+    // 曖昧一致候補選択キャンセルボタン
+    this.addEventListener('fuzzyCancelBtn', 'click', () => this.cancelFuzzySelection());
 
     // 出題絞り込み折りたたみボタン
     this.addEventListener('toggleQuizFilters', 'click', () => this.toggleQuizFilters());
@@ -225,12 +231,7 @@ class QuizMode {
     const answerMode = document.getElementById('answerMode').value;
     const startQuizBtn = document.getElementById('startQuizBtn');
 
-    if (answerMode === 'fuzzy') {
-      // 曖昧一致の場合はボタンを無効化
-      startQuizBtn.disabled = true;
-      startQuizBtn.title = '曖昧一致モードは現在未実装です。完全一致モードまたはボタン回答モードをご利用ください。';
-      console.log('[Quiz] 曖昧一致モードは未実装のため、クイズ開始ボタンを無効化しました');
-    } else if (answerMode === 'button') {
+    if (answerMode === 'button') {
       // ボタン回答の場合は、再生可能楽曲数が4曲以上必要
       const filteredSongs = this.filterQuizSongsInternal();
       const availableCount = filteredSongs.filter(song => this.isMusicDirSet && song.fileExists).length;
@@ -283,7 +284,10 @@ class QuizMode {
       responseTimes: [],
       currentQuizSong: null,
       quizAudioPlayer: null,
-      answerMode: answerMode // 回答モードを保存
+      answerMode: answerMode, // 回答モードを保存
+      awaitingCandidateSelection: false,  // 候補選択待ち状態
+      fuzzyMatchCandidates: [],           // 現在の候補楽曲リスト
+      fuzzyUserAnswer: ''                 // 曖昧一致で入力された回答
     };
 
     console.log(`[Quiz] ${availableSongs.length}曲が出題対象です（回答モード: ${answerMode}）`);
@@ -627,6 +631,12 @@ class QuizMode {
    * クイズの回答を提出する
    */
   submitAnswer() {
+    // 候補選択待ち中のチェック
+    if (this.quizState.awaitingCandidateSelection) {
+      console.warn('[Quiz] 候補選択待ち中は新しい回答を提出できません');
+      return;
+    }
+
     if (!this.quizState.isActive || !this.quizState.currentQuizSong) {
       console.warn('[Quiz] クイズがアクティブでないか、現在の問題がありません');
       return;
@@ -642,26 +652,36 @@ class QuizMode {
 
     // 時間計測終了
     const responseTime = Date.now() - this.quizState.questionStartTime;
-    this.quizState.responseTimes.push(responseTime);
 
     console.log(`[Quiz] ユーザー回答: "${userAnswer}", 正解: "${this.quizState.currentQuizSong.title}", 回答時間: ${responseTime}ms`);
 
     try {
-      // Song.matchesAnswer()を使用して完全一致モードで判定
-      const isCorrect = this.quizState.currentQuizSong.matchesAnswer(userAnswer, 'exact');
+      // 回答モード取得
+      const answerMode = this.quizState.answerMode;
 
-      if (isCorrect) {
-        this.quizState.correctAnswers++;
-        console.log('[Quiz] 正解!');
-      } else {
-        console.log('[Quiz] 不正解');
+      if (answerMode === 'exact') {
+        // 完全一致モード
+        this.quizState.responseTimes.push(responseTime);
+
+        // Song.matchesAnswer()を使用して完全一致モードで判定
+        const isCorrect = this.quizState.currentQuizSong.matchesAnswer(userAnswer, 'exact');
+
+        if (isCorrect) {
+          this.quizState.correctAnswers++;
+          console.log('[Quiz] 正解!');
+        } else {
+          console.log('[Quiz] 不正解');
+        }
+
+        // 結果を表示
+        this.showQuestionResult(isCorrect, userAnswer, responseTime);
+
+        // 使用済み楽曲に追加
+        this.quizState.usedSongs.push(this.quizState.currentQuizSong);
+      } else if (answerMode === 'fuzzy') {
+        // 曖昧一致モード
+        this.handleFuzzyAnswer(userAnswer, responseTime);
       }
-
-      // 結果を表示
-      this.showQuestionResult(isCorrect, userAnswer, responseTime);
-
-      // 使用済み楽曲に追加
-      this.quizState.usedSongs.push(this.quizState.currentQuizSong);
     } catch (error) {
       console.error('[Quiz] 回答判定中にエラーが発生:', error);
       alert(`回答の判定中にエラーが発生しました: ${error.message}`);
@@ -741,6 +761,9 @@ class QuizMode {
       return;
     }
 
+    // 候補選択UIが表示されている場合はクリーンアップ
+    this.cleanupFuzzyCandidatesUI();
+
     // 現在の楽曲を完全に停止・クリーンアップ
     this.cleanupQuizAudioPlayer();
     console.log('[Quiz] 次の問題に進むため、現在の楽曲を停止しました');
@@ -781,6 +804,9 @@ class QuizMode {
    */
   endQuiz() {
     console.log('[Quiz] クイズを終了します');
+
+    // 候補選択UIが表示されている場合はクリーンアップ
+    this.cleanupFuzzyCandidatesUI();
 
     // クイズ状態を非アクティブに（最初に設定してエラーメッセージを抑制）
     this.quizState.isActive = false;
@@ -869,11 +895,235 @@ class QuizMode {
   }
 
   /**
+   * 曖昧一致候補選択UIを表示する
+   * @param {Array<Song>} candidateSongs 候補楽曲の配列（重複タイトル除外済み）
+   */
+  showFuzzyCandidatesUI(candidateSongs) {
+    const container = document.getElementById('fuzzyCandidatesContainer');
+    const buttonsArea = document.getElementById('fuzzyCandidatesButtons');
+
+    if (!container || !buttonsArea) {
+      console.error('[Quiz] 候補選択UIの要素が見つかりません');
+      return;
+    }
+
+    // 既存のボタンをクリア
+    buttonsArea.innerHTML = '';
+
+    // 各候補に対してボタンを生成
+    candidateSongs.forEach(song => {
+      const button = document.createElement('button');
+      button.className = 'answer-choice-button';
+
+      // タイトル表示
+      const titleDisplay = Array.isArray(song.title) ? song.title[0] : song.title;
+      button.textContent = titleDisplay;
+
+      // クリックハンドラー
+      const clickHandler = () => this.submitFuzzyCandidate(song);
+      button.addEventListener('click', clickHandler);
+
+      // クリーンアップ用にハンドラーを保存
+      button._clickHandler = clickHandler;
+
+      buttonsArea.appendChild(button);
+    });
+
+    // コンテナを表示
+    container.classList.remove('hidden');
+
+    // 回答ボタンと入力欄を無効化
+    const submitBtn = document.getElementById('submitAnswerBtn');
+    const answerInput = document.getElementById('answerText');
+    if (submitBtn) submitBtn.disabled = true;
+    if (answerInput) answerInput.disabled = true;
+
+    // 候補選択中フラグを立てる
+    this.quizState.awaitingCandidateSelection = true;
+
+    console.log(`[Quiz] 候補選択UIを表示しました（${candidateSongs.length}件）`);
+  }
+
+  /**
+   * 候補選択UIをクリーンアップする
+   */
+  cleanupFuzzyCandidatesUI() {
+    const container = document.getElementById('fuzzyCandidatesContainer');
+    const buttonsArea = document.getElementById('fuzzyCandidatesButtons');
+
+    if (!container || !buttonsArea) return;
+
+    // ボタンのイベントリスナーを削除
+    const buttons = buttonsArea.querySelectorAll('.answer-choice-button');
+    buttons.forEach(button => {
+      if (button._clickHandler) {
+        button.removeEventListener('click', button._clickHandler);
+      }
+    });
+
+    // ボタンをクリア
+    buttonsArea.innerHTML = '';
+
+    // コンテナを非表示
+    container.classList.add('hidden');
+
+    // 回答ボタンと入力欄を再有効化
+    const submitBtn = document.getElementById('submitAnswerBtn');
+    const answerInput = document.getElementById('answerText');
+    if (submitBtn) submitBtn.disabled = false;
+    if (answerInput) answerInput.disabled = false;
+
+    // 状態フラグをリセット
+    this.quizState.awaitingCandidateSelection = false;
+    this.quizState.fuzzyMatchCandidates = [];
+    this.quizState.fuzzyUserAnswer = '';
+
+    console.log('[Quiz] 候補選択UIをクリーンアップしました');
+  }
+
+  /**
+   * 候補選択をキャンセルして入力に戻る
+   */
+  cancelFuzzySelection() {
+    console.log('[Quiz] 候補選択をキャンセルしました');
+    this.cleanupFuzzyCandidatesUI();
+
+    // 入力欄にフォーカスを設定
+    const answerInput = document.getElementById('answerText');
+    if (answerInput) {
+      answerInput.focus();
+    }
+  }
+
+  /**
+   * ユーザーの回答に曖昧一致する候補楽曲を検出する
+   * @param {string} userAnswer ユーザーの回答
+   * @returns {Array<Song>} 候補楽曲の配列
+   */
+  findFuzzyCandidates(userAnswer) {
+    // 全楽曲データから曖昧一致する楽曲を抽出
+    const candidates = this.songData.filter(song =>
+      song.matchesAnswer(userAnswer, 'fuzzy')
+    );
+
+    console.log(`[Quiz] 曖昧一致候補: ${candidates.length}件検出`);
+    return candidates;
+  }
+
+  /**
+   * 候補楽曲をタイトルでグルーピングし、重複を排除する
+   * @param {Array<Song>} candidateSongs 候補楽曲の配列
+   * @returns {Object} { uniqueTitles: Array<string>, titleGroups: Map, representatives: Array<Song> }
+   */
+  groupCandidatesByTitle(candidateSongs) {
+    const titleGroups = new Map();
+
+    candidateSongs.forEach(song => {
+      const normalizedTitle = (Array.isArray(song.title) ? song.title[0] : song.title).toLowerCase();
+      if (!titleGroups.has(normalizedTitle)) {
+        titleGroups.set(normalizedTitle, []);
+      }
+      titleGroups.get(normalizedTitle).push(song);
+    });
+
+    const uniqueTitles = Array.from(titleGroups.keys());
+
+    // 各タイトルグループから代表楽曲を1つ選択
+    const representatives = uniqueTitles.map(title => titleGroups.get(title)[0]);
+
+    return { uniqueTitles, titleGroups, representatives };
+  }
+
+  /**
+   * 曖昧一致モードでの回答処理
+   * @param {string} userAnswer ユーザーの回答
+   * @param {number} responseTime 回答時間（ミリ秒）
+   */
+  handleFuzzyAnswer(userAnswer, responseTime) {
+    // 候補検出
+    const candidates = this.findFuzzyCandidates(userAnswer);
+
+    if (candidates.length === 0) {
+      // ケースA: 候補なし → 不正解
+      console.log('[Quiz] 候補なし → 不正解');
+      this.quizState.responseTimes.push(responseTime);
+      this.showQuestionResult(false, userAnswer, responseTime);
+      this.quizState.usedSongs.push(this.quizState.currentQuizSong);
+      return;
+    }
+
+    // タイトルでグルーピング
+    const { uniqueTitles, titleGroups, representatives } = this.groupCandidatesByTitle(candidates);
+
+    if (uniqueTitles.length === 1) {
+      // ケースB: 全候補が同一タイトル → 即座に判定
+      const isCorrect = titleGroups.get(uniqueTitles[0]).includes(this.quizState.currentQuizSong);
+      console.log(`[Quiz] 同一タイトル候補 → ${isCorrect ? '正解' : '不正解'}`);
+
+      if (isCorrect) {
+        this.quizState.correctAnswers++;
+      }
+
+      this.quizState.responseTimes.push(responseTime);
+      this.showQuestionResult(isCorrect, userAnswer, responseTime);
+      this.quizState.usedSongs.push(this.quizState.currentQuizSong);
+      return;
+    }
+
+    // ケースC: 複数の異なるタイトル → 候補選択UI表示
+    console.log(`[Quiz] 複数タイトル候補（${uniqueTitles.length}件） → 選択UI表示`);
+    this.quizState.fuzzyMatchCandidates = representatives;
+    this.quizState.fuzzyUserAnswer = userAnswer;
+    this.showFuzzyCandidatesUI(representatives);
+
+    // 注意: 回答時間はこの時点では記録せず、候補選択後に記録
+  }
+
+  /**
+   * 候補選択時の処理
+   * @param {Song} selectedSong ユーザーが選択した楽曲
+   */
+  submitFuzzyCandidate(selectedSong) {
+    if (!this.quizState.isActive || !this.quizState.currentQuizSong) {
+      return;
+    }
+
+    // 候補選択UIをクリーンアップ
+    this.cleanupFuzzyCandidatesUI();
+
+    // 時間計測終了（初回回答からの経過時間）
+    const responseTime = Date.now() - this.quizState.questionStartTime;
+    this.quizState.responseTimes.push(responseTime);
+
+    // 正誤判定
+    const isCorrect = selectedSong === this.quizState.currentQuizSong;
+
+    if (isCorrect) {
+      this.quizState.correctAnswers++;
+      console.log('[Quiz] 正解!');
+    } else {
+      console.log('[Quiz] 不正解');
+    }
+
+    // タイトル表示
+    const userAnswer = Array.isArray(selectedSong.title) ? selectedSong.title[0] : selectedSong.title;
+
+    // 結果表示
+    this.showQuestionResult(isCorrect, userAnswer, responseTime);
+
+    // 使用済み楽曲に追加
+    this.quizState.usedSongs.push(this.quizState.currentQuizSong);
+  }
+
+  /**
    * クリーンアップ処理
    * モード切り替え時にイベントリスナーを削除し、音楽を停止する
    */
   cleanup() {
     console.log('[QuizMode] 演習モードをクリーンアップします');
+
+    // 候補選択UIをクリーンアップ
+    this.cleanupFuzzyCandidatesUI();
 
     // クイズがアクティブな場合は終了
     if (this.quizState.isActive) {
