@@ -1,6 +1,8 @@
 // audio-player.js - HTML5 Audio要素のラッパークラス
 // listening-modeとquiz-modeで共有される音楽再生機能を提供
 
+const { SilenceDetector } = require('../utils/silenceDetector.js');
+
 /**
  * オーディオプレーヤーを管理するクラス
  * HTML5 Audio要素のラッパーとして、共通の再生制御APIを提供
@@ -10,6 +12,11 @@ class AudioPlayerController {
     this.audioElement = null;
     this.isPlaying = false;
     this.isPaused = false;
+
+    // 頭出し機能関連
+    this.silenceDetector = new SilenceDetector();
+    this.trimSilenceEnabled = true; // デフォルトで有効
+    this.startTime = 0; // 検出された音声開始位置
 
     // イベントリスナーへの参照を保持（cleanup時に削除するため）
     this.eventHandlers = {
@@ -24,24 +31,53 @@ class AudioPlayerController {
    * 楽曲を読み込む
    * @param {string} filePath 楽曲ファイルのパス
    * @param {number} volume 音量（0.0〜1.0）
+   * @param {Object} options オプション設定
+   * @param {boolean} options.trimSilence 頭出し機能を使用するか（デフォルト: this.trimSilenceEnabled）
    * @returns {Promise} 読み込み完了を待つPromise
    */
-  load(filePath, volume = 1.0) {
-    return new Promise((resolve, reject) => {
+  async load(filePath, volume = 1.0, options = {}) {
+    const { trimSilence = this.trimSilenceEnabled } = options;
+
+    return new Promise(async (resolve, reject) => {
       try {
         // 既存のオーディオをクリーンアップ
         this.cleanup();
 
         console.log(`[AudioPlayerController] 楽曲を読み込み中: ${filePath}`);
+
+        // 頭出し機能が有効な場合、無音検出を実行
+        let startTime = 0;
+        if (trimSilence) {
+          try {
+            startTime = await this.silenceDetector.detectSilenceStart(filePath);
+            if (startTime > 0) {
+              console.log(`[AudioPlayerController] 頭出し: ${startTime.toFixed(3)}秒から開始`);
+            }
+          } catch (err) {
+            console.warn('[AudioPlayerController] 無音検出失敗、通常再生:', err);
+          }
+        }
+
         this.audioElement = new Audio(filePath);
         this.audioElement.volume = volume;
+        this.startTime = startTime;
+
+        // canplayが1回だけ実行されるようにフラグを使用
+        let canplayFired = false;
 
         // イベントハンドラーを設定
         this.eventHandlers.loadedmetadata = () => {
           console.log('[AudioPlayerController] オーディオメタデータ読み込み完了');
+          // メタデータ読み込み後に開始位置を設定
+          if (this.startTime > 0 && this.audioElement) {
+            this.audioElement.currentTime = this.startTime;
+            console.log(`[AudioPlayerController] 開始位置を${this.startTime.toFixed(3)}秒に設定`);
+          }
         };
 
         this.eventHandlers.canplay = () => {
+          if (canplayFired) return; // 2回目以降は無視
+          canplayFired = true;
           console.log('[AudioPlayerController] 再生準備完了');
           resolve();
         };
@@ -166,6 +202,24 @@ class AudioPlayerController {
     // 新しいハンドラーを設定
     this.eventHandlers[eventName] = handler;
     this.audioElement.addEventListener(eventName, handler);
+  }
+
+  /**
+   * 頭出し機能のON/OFF切り替え
+   * @param {boolean} enabled 有効にする場合true
+   */
+  setTrimSilenceEnabled(enabled) {
+    this.trimSilenceEnabled = enabled;
+    console.log(`[AudioPlayerController] 頭出し機能: ${enabled ? 'ON' : 'OFF'}`);
+  }
+
+  /**
+   * 無音検出の閾値を設定
+   * @param {number} threshold 閾値（0-1）
+   */
+  setSilenceThreshold(threshold) {
+    this.silenceDetector.setThreshold(threshold);
+    console.log(`[AudioPlayerController] 無音検出閾値を設定: ${threshold}`);
   }
 
   /**
