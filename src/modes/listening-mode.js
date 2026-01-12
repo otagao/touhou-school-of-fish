@@ -1,6 +1,7 @@
 // listening-mode.js - 聴取モードの管理
 const songUtils = require('../utils/songUtils.js');
 const { FilterControls } = require('../components/filter-controls.js');
+const { AudioPlayerController } = require('../components/audio-player.js');
 
 /**
  * 聴取モードを管理するクラス
@@ -240,7 +241,7 @@ class ListeningMode {
   /**
    * 楽曲の再生
    */
-  playSong() {
+  async playSong() {
     if (!this.currentSong || !this.currentSong.filePath || !this.isMusicDirSet) {
       console.warn('[ListeningMode] 再生条件を満たしていません。', { currentSong: this.currentSong, isMusicDirSet: this.isMusicDirSet });
       return;
@@ -250,36 +251,23 @@ class ListeningMode {
       console.log(`[ListeningMode] 楽曲の再生を開始します: ${this.currentSong.title}, ファイルパス: ${this.currentSong.filePath}`);
       this.stopSongInternal();
 
-      console.log('[ListeningMode] 新しいオーディオプレーヤーを作成します');
-      this.audioPlayer = new Audio(this.currentSong.filePath);
+      console.log('[ListeningMode] AudioPlayerControllerを作成します');
+      this.audioPlayer = new AudioPlayerController();
       const volume = document.getElementById('volumeSlider').value / 100;
-      this.audioPlayer.volume = volume;
 
-      this.audioPlayer.addEventListener('loadedmetadata', () => {
-        console.log('[ListeningMode] オーディオメタデータ読み込み完了');
-      });
-      this.audioPlayer.addEventListener('canplay', () => {
-        console.log('[ListeningMode] 再生準備完了');
-        this.audioPlayer.play().catch(e => {
-          console.error('[ListeningMode] 再生開始エラー:', e);
-          alert(`楽曲の再生開始に失敗しました: ${e.message}`);
-          this.updatePlayButtons(false);
-        });
-        console.log('[ListeningMode] 再生を開始しました');
-        this.updatePlayButtons(true);
-      });
-      this.audioPlayer.addEventListener('ended', () => {
+      // 読み込み（頭出し機能が自動適用）
+      await this.audioPlayer.load(this.currentSong.filePath, volume);
+
+      // 再生開始
+      await this.audioPlayer.play();
+      console.log('[ListeningMode] 再生を開始しました');
+      this.updatePlayButtons(true);
+
+      // 終了イベント
+      this.audioPlayer.on('ended', () => {
         console.log('[ListeningMode] 楽曲の再生が終了しました');
         this.updatePlayButtons(false);
       });
-      this.audioPlayer.addEventListener('error', (e) => {
-        console.error('[ListeningMode] オーディオ再生エラー:', this.audioPlayer.error);
-        alert(`楽曲の再生中にエラーが発生しました: ${this.audioPlayer.error?.message || '不明なエラー'}`);
-        this.updatePlayButtons(false);
-      });
-
-      console.log('[ListeningMode] オーディオの読み込みを開始します...');
-      this.audioPlayer.load();
 
     } catch (error) {
       console.error('[ListeningMode] 再生処理でのエラー:', error);
@@ -292,7 +280,7 @@ class ListeningMode {
    * 楽曲の一時停止
    */
   pauseSong() {
-    if (this.audioPlayer && !this.audioPlayer.paused) {
+    if (this.audioPlayer && this.audioPlayer.getIsPlaying()) {
       this.audioPlayer.pause();
       console.log('[ListeningMode] 楽曲を一時停止しました');
       this.updatePlayButtons(false, true);
@@ -312,13 +300,7 @@ class ListeningMode {
    */
   stopSongInternal() {
     if (this.audioPlayer) {
-      this.audioPlayer.pause();
-      this.audioPlayer.currentTime = 0;
-      this.audioPlayer.removeEventListener('loadedmetadata', null);
-      this.audioPlayer.removeEventListener('canplay', null);
-      this.audioPlayer.removeEventListener('ended', null);
-      this.audioPlayer.removeEventListener('error', null);
-      this.audioPlayer.src = '';
+      this.audioPlayer.cleanup();
       this.audioPlayer = null;
       console.log('[ListeningMode] オーディオプレーヤーを停止・破棄しました');
     }
@@ -362,7 +344,7 @@ class ListeningMode {
   adjustVolume() {
     const volume = document.getElementById('volumeSlider').value / 100;
     if (this.audioPlayer) {
-      this.audioPlayer.volume = volume;
+      this.audioPlayer.setVolume(volume);
     }
   }
 
