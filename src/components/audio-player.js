@@ -62,17 +62,23 @@ class AudioPlayerController {
         this.audioElement.volume = volume;
         this.startTime = startTime;
 
+        // canplayが1回だけ実行されるようにフラグを使用
+        let canplayFired = false;
+
         // イベントハンドラーを設定
         this.eventHandlers.loadedmetadata = () => {
           console.log('[AudioPlayerController] オーディオメタデータ読み込み完了');
+          // メタデータ読み込み後に開始位置を設定
+          if (this.startTime > 0 && this.audioElement) {
+            this.audioElement.currentTime = this.startTime;
+            console.log(`[AudioPlayerController] 開始位置を${this.startTime.toFixed(3)}秒に設定`);
+          }
         };
 
         this.eventHandlers.canplay = () => {
+          if (canplayFired) return; // 2回目以降は無視
+          canplayFired = true;
           console.log('[AudioPlayerController] 再生準備完了');
-          // 開始位置を設定
-          if (this.startTime > 0) {
-            this.audioElement.currentTime = this.startTime;
-          }
           resolve();
         };
 
