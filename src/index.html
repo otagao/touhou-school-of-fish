@@ -254,6 +254,29 @@
           </p>
         </div>
 
+        <!-- 頭出し機能の設定 -->
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="trimSilenceEnabled" checked>
+            頭出し機能を有効にする（楽曲の先頭無音部分を自動スキップ）
+          </label>
+          <p class="help-text" style="margin-left: 1.5rem; font-size: 0.85rem; color: #666;">
+            音声ファイルの先頭にある無音部分を検出し、自動的にスキップします。<br>
+            初回再生時に解析が行われますが、結果はキャッシュされます。
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label for="silenceThreshold">無音検出の感度（小さいほど敏感）</label>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="range" id="silenceThreshold" min="0.001" max="0.05" step="0.001" value="0.01" style="flex: 1;">
+            <span id="silenceThresholdValue" style="min-width: 50px;">0.01</span>
+          </div>
+          <p class="help-text" style="font-size: 0.85rem; color: #666;">
+            デフォルト: 0.01 （推奨範囲: 0.005〜0.02）
+          </p>
+        </div>
+
         <button id="applySettingsBtn" class="primary-button">設定を保存</button>
 
         <!-- 開発者向けデバッグ機能 -->

@@ -50,6 +50,12 @@ class SettingsMode {
 
     // デバッグ機能: ハッシュCSV書き込みボタン
     this.addEventListener('writeHashToCsvBtn', 'click', () => this.writeHashToCsv());
+
+    // 閾値スライダーの変更イベント
+    this.addEventListener('silenceThreshold', 'input', () => {
+      const value = document.getElementById('silenceThreshold').value;
+      document.getElementById('silenceThresholdValue').textContent = value;
+    });
   }
 
   /**
@@ -73,6 +79,25 @@ class SettingsMode {
     document.getElementById('musicDirPathSettings').value = this.musicDirectory || '';
     document.getElementById('csvFilePathSettings').value = this.csvFilePath || '';
     document.getElementById('recognitionMode').value = this.recognitionMode;
+
+    // 頭出し機能の設定を読み込み
+    const trimSilenceEnabled = localStorage.getItem('trimSilenceEnabled');
+    if (trimSilenceEnabled !== null) {
+      document.getElementById('trimSilenceEnabled').checked = trimSilenceEnabled === 'true';
+    } else {
+      // デフォルト: 有効
+      document.getElementById('trimSilenceEnabled').checked = true;
+    }
+
+    const silenceThreshold = localStorage.getItem('silenceThreshold');
+    if (silenceThreshold !== null) {
+      document.getElementById('silenceThreshold').value = silenceThreshold;
+      document.getElementById('silenceThresholdValue').textContent = silenceThreshold;
+    } else {
+      // デフォルト: 0.01
+      document.getElementById('silenceThreshold').value = '0.01';
+      document.getElementById('silenceThresholdValue').textContent = '0.01';
+    }
   }
 
   /**
@@ -145,6 +170,15 @@ class SettingsMode {
       settingsChanged = true;
     }
 
+    // 頭出し機能の設定を保存
+    const trimSilenceEnabled = document.getElementById('trimSilenceEnabled').checked;
+    localStorage.setItem('trimSilenceEnabled', trimSilenceEnabled);
+
+    const silenceThreshold = document.getElementById('silenceThreshold').value;
+    localStorage.setItem('silenceThreshold', silenceThreshold);
+
+    console.log('[Settings] 頭出し設定を保存:', { trimSilenceEnabled, silenceThreshold });
+
     // 設定が変更された場合、アプリケーションを再起動する必要があることを通知
     if (settingsChanged) {
       if (confirm('設定を変更するにはアプリケーションを再起動する必要があります。再起動しますか？')) {
@@ -154,7 +188,7 @@ class SettingsMode {
         }
       }
     } else {
-      alert('設定に変更はありませんでした。');
+      alert('設定を保存しました。');
     }
   }
 
