@@ -1,6 +1,7 @@
 // quiz-mode.js - 演習モードの管理
 const songUtils = require('../utils/songUtils.js');
 const { FilterControls } = require('../components/filter-controls.js');
+const { AudioPlayerController } = require('../components/audio-player.js');
 
 /**
  * 演習モードを管理するクラス
@@ -536,7 +537,7 @@ class QuizMode {
   /**
    * クイズ用楽曲を読み込み、自動再生する
    */
-  loadQuizSong(song) {
+  async loadQuizSong(song) {
     // クイズが非アクティブの場合は何もしない
     if (!this.quizState.isActive) {
       console.log('[Quiz] クイズが非アクティブのため、楽曲読み込みを中止します');
@@ -553,50 +554,18 @@ class QuizMode {
 
     try {
       console.log(`[Quiz] 楽曲を読み込み中: ${song.filePath}`);
-      this.quizState.quizAudioPlayer = new Audio(song.filePath);
 
-      // 音量をスライダーの値に合わせて設定
+      // AudioPlayerControllerを使用
+      this.quizState.quizAudioPlayer = new AudioPlayerController();
       const volume = document.getElementById('quizVolumeSlider').value / 100;
-      this.quizState.quizAudioPlayer.volume = volume;
 
-      // 読み込み完了時のイベントリスナー
-      const onLoadedMetadata = () => {
-        console.log('[Quiz] 楽曲の読み込み完了');
-        // 再度アクティブ状態をチェック
-        if (this.quizState.isActive && this.quizState.quizAudioPlayer) {
-          console.log('[Quiz] 自動再生を開始');
-          this.quizState.quizAudioPlayer.play().catch(e => {
-            console.error('[Quiz] 自動再生エラー:', e);
-            // クイズがアクティブな場合のみエラーメッセージを表示
-            if (this.quizState.isActive) {
-              alert(`楽曲の再生に失敗しました: ${e.message}`);
-            }
-          });
-        }
-      };
+      // 読み込み（頭出し機能が自動適用）
+      await this.quizState.quizAudioPlayer.load(song.filePath, volume);
 
-      // エラー時のイベントリスナー
-      const onError = (e) => {
-        console.error('[Quiz] 楽曲の読み込みエラー:', e);
-        // クイズがアクティブな場合のみエラーメッセージを表示
-        if (this.quizState.isActive) {
-          alert('楽曲の読み込みに失敗しました。');
-        }
-      };
-
-      // イベントリスナーを保存（後で削除するため）
-      this.quizState.quizAudioPlayer._onLoadedMetadata = onLoadedMetadata;
-      this.quizState.quizAudioPlayer._onError = onError;
-
-      this.quizState.quizAudioPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
-      this.quizState.quizAudioPlayer.addEventListener('error', onError);
-
-      // 最終的にアクティブ状態を再チェックして読み込み開始
+      // アクティブ状態を再確認して自動再生
       if (this.quizState.isActive) {
-        this.quizState.quizAudioPlayer.load();
-      } else {
-        console.log('[Quiz] 読み込み開始前にクイズが非アクティブになったため中止');
-        this.cleanupQuizAudioPlayer();
+        console.log('[Quiz] 自動再生を開始');
+        await this.quizState.quizAudioPlayer.play();
       }
     } catch (error) {
       console.error('[Quiz] 楽曲の読み込み中にエラーが発生:', error);
@@ -612,16 +581,7 @@ class QuizMode {
    */
   cleanupQuizAudioPlayer() {
     if (this.quizState.quizAudioPlayer) {
-      // 保存されたイベントリスナー関数を使って正しく削除
-      if (this.quizState.quizAudioPlayer._onLoadedMetadata) {
-        this.quizState.quizAudioPlayer.removeEventListener('loadedmetadata', this.quizState.quizAudioPlayer._onLoadedMetadata);
-      }
-      if (this.quizState.quizAudioPlayer._onError) {
-        this.quizState.quizAudioPlayer.removeEventListener('error', this.quizState.quizAudioPlayer._onError);
-      }
-
-      this.quizState.quizAudioPlayer.pause();
-      this.quizState.quizAudioPlayer.src = '';
+      this.quizState.quizAudioPlayer.cleanup();
       this.quizState.quizAudioPlayer = null;
       console.log('[Quiz] オーディオプレーヤーをクリーンアップしました');
     }
@@ -889,7 +849,7 @@ class QuizMode {
   adjustQuizVolume() {
     const volume = document.getElementById('quizVolumeSlider').value / 100;
     if (this.quizState.quizAudioPlayer) {
-      this.quizState.quizAudioPlayer.volume = volume;
+      this.quizState.quizAudioPlayer.setVolume(volume);
       console.log(`[Quiz] 音量を${volume * 100}%に変更しました`);
     }
   }
