@@ -1,6 +1,6 @@
 {
   "name": "touhou-school-of-fish",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "東方Project楽曲のイントロクイズに向けた学習・演習用アプリ",
   "main": "main.js",
   "scripts": {
