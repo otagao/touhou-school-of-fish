@@ -15,7 +15,7 @@
   "author": "otagao",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^40.6.0",
+    "electron": "^40.6.1",
     "electron-builder": "^26.8.1",
     "generate-license-file": "^4.1.1",
     "license-checker": "^25.0.1"
