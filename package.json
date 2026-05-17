@@ -25,7 +25,7 @@
     "papaparse": "^5.5.3"
   },
   "overrides": {
-    "tar": "7.5.3"
+    "tar": "7.5.15"
   },
   "build": {
     "appId": "com.otagao.touhouschooloffish",
