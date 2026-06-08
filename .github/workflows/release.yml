@@ -54,10 +54,13 @@ jobs:
         include:
           - runner: macos-15
             artifact-name: build-macos-latest
-          - runner: windows-latest
+            build-script: dist:mac
+          - runner: windows-2025
             artifact-name: build-windows-latest
+            build-script: dist:win
           - runner: ubuntu-latest
             artifact-name: build-ubuntu-latest
+            build-script: dist:linux
 
     steps:
       - name: チェックアウト
@@ -105,7 +108,7 @@ jobs:
         run: |
           for attempt in 1 2 3; do
             echo "Electronビルド試行 $attempt/3"
-            if npm run build; then
+            if npm run ${{ matrix.build-script }}; then
               exit 0
             fi
 
@@ -121,7 +124,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact-name }}
-          path: dist/*
+          path: |
+            dist/*.zip
+            dist/*.AppImage
+          if-no-files-found: error
 
   # GitHubリリース作成
   release:
