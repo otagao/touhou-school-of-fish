@@ -93,10 +93,21 @@ jobs:
           fi
 
       - name: Electronビルド
-        uses: samuelmeuli/action-electron-builder@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          release: false
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            echo "Electronビルド試行 $attempt/3"
+            if npm run build; then
+              exit 0
+            fi
+
+            if [ "$attempt" = "3" ]; then
+              echo "Electronビルドが3回失敗しました"
+              exit 1
+            fi
+
+            sleep $((attempt * 10))
+          done
 
       - name: ビルド成果物アップロード
         uses: actions/upload-artifact@v7
