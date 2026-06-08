@@ -47,11 +47,17 @@ jobs:
   # マルチプラットフォームビルド
   build:
     needs: license-check
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
 
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - runner: macos-15
+            artifact-name: build-macos-latest
+          - runner: windows-latest
+            artifact-name: build-windows-latest
+          - runner: ubuntu-latest
+            artifact-name: build-ubuntu-latest
 
     steps:
       - name: チェックアウト
@@ -94,6 +100,8 @@ jobs:
 
       - name: Electronビルド
         shell: bash
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
         run: |
           for attempt in 1 2 3; do
             echo "Electronビルド試行 $attempt/3"
@@ -112,7 +120,7 @@ jobs:
       - name: ビルド成果物アップロード
         uses: actions/upload-artifact@v7
         with:
-          name: build-${{ matrix.os }}
+          name: ${{ matrix.artifact-name }}
           path: dist/*
 
   # GitHubリリース作成
