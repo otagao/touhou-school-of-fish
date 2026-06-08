@@ -8,6 +8,7 @@
     "build": "electron-builder --dir --publish never",
     "dist:mac": "electron-builder --mac --publish never",
     "dist:win": "electron-builder --win --publish never",
+    "dist:linux": "electron-builder --linux --publish never",
     "license-check": "license-checker --production --failOn 'GPL;AGPL;LGPL'",
     "generate-licenses": "generate-license-file --input package.json --output THIRD-PARTY-LICENSES.txt --overwrite",
     "test": "echo \"Error: no test specified\" && exit 1"
