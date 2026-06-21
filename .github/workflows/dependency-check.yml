@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: チェックアウト
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Node.jsセットアップ
         uses: actions/setup-node@v6
