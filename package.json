@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "howler": "^2.2.4",
-    "papaparse": "^5.5.3"
+    "papaparse": "^5.5.4"
   },
   "overrides": {
     "tar": "7.5.15"
