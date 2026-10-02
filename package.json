@@ -1,13 +1,14 @@
 {
   "name": "touhou-school-of-fish",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "東方Project楽曲のイントロクイズに向けた学習・演習用アプリ",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --dir",
-    "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win",
+    "build": "electron-builder --dir --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:linux": "electron-builder --linux --publish never",
     "license-check": "license-checker --production --failOn 'GPL;AGPL;LGPL'",
     "generate-licenses": "generate-license-file --input package.json --output THIRD-PARTY-LICENSES.txt --overwrite",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -15,17 +16,17 @@
   "author": "otagao",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^42.2.0",
-    "electron-builder": "^26.11.1",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
     "generate-license-file": "^4.2.1",
     "license-checker": "^25.0.1"
   },
   "dependencies": {
     "howler": "^2.2.4",
-    "papaparse": "^5.5.3"
+    "papaparse": "^5.5.4"
   },
   "overrides": {
-    "tar": "7.5.15"
+    "tar": "7.5.22"
   },
   "build": {
     "appId": "com.otagao.touhouschooloffish",
