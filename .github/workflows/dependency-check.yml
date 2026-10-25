@@ -26,7 +26,9 @@ jobs:
           cache: 'npm'
 
       - name: 依存関係インストール
-        run: npm ci
+        uses: ./.github/actions/npm-ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
 
       # アップデート可能なパッケージのチェック
       - name: npm outdated チェック

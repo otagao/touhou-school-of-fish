@@ -39,7 +39,7 @@ jobs:
           cache: 'npm'
 
       - name: 依存関係インストール
-        run: npm ci
+        uses: ./.github/actions/npm-ci
 
       # セキュリティチェック
       - name: npm audit（高リスク以上の脆弱性チェック）
