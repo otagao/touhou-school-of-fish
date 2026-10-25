@@ -24,7 +24,9 @@ jobs:
           cache: 'npm'
 
       - name: 依存関係インストール
-        run: npm ci
+        uses: ./.github/actions/npm-ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
 
       - name: ライセンスチェック
         run: npm run license-check
@@ -78,7 +80,7 @@ jobs:
           name: license-files
 
       - name: 依存関係インストール
-        run: npm ci
+        uses: ./.github/actions/npm-ci
 
       - name: lockfile 整合性チェック
         shell: bash

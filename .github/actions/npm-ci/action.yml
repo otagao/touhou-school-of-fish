@@ -1,0 +1,25 @@
+name: npm ci with network retry
+description: 一時的な通信障害の場合のみ依存関係のインストールを再試行する
+runs:
+  using: composite
+  steps:
+    - name: 依存関係インストール
+      shell: bash
+      run: |
+        log_file=$(mktemp)
+        trap 'rm -f "$log_file"' EXIT
+        for attempt in 1 2 3; do
+          if npm ci > "$log_file" 2>&1; then
+            cat "$log_file"
+            exit 0
+          else
+            status=$?
+          fi
+          cat "$log_file"
+          # lockfile不整合やスクリプトのエラーは再試行しない。
+          if [ "$attempt" -eq 3 ] || ! grep -Eq 'ECONNRESET|ETIMEDOUT|EAI_AGAIN|ECONNREFUSED|ERR_SOCKET_TIMEOUT|socket hang up|E50[234]|(502|503|504) (Bad Gateway|Service Unavailable|Gateway Timeout)' "$log_file"; then
+            exit "$status"
+          fi
+          echo "::warning::通信障害のため npm ci を再試行します ($attempt/3)"
+          sleep $((attempt * 10))
+        done
